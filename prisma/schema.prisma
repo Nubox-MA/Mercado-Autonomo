@@ -1,0 +1,152 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(uuid())
+  name      String
+  cpf       String?    @unique
+  phone     String?
+  role      String     @default("USER")
+  password  String?
+  lastLogin DateTime? // Rastrear último acesso
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  address   String?
+  photoUrl  String?
+  neighborhoodId String?
+  neighborhood   Neighborhood? @relation(fields: [neighborhoodId], references: [id], onDelete: SetNull)
+  orders    Order[]
+  favorites Favorite[]
+
+  @@unique([name, phone])
+  @@map("users")
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  price       Float    // Preço padrão (fallback se não houver preço específico do condomínio)
+  promoPrice  Float?   // Preço em promoção padrão
+  isPromotion Boolean  @default(false)
+  isNew       Boolean  @default(false)
+  stock       Int      @default(0) // Estoque padrão
+  imageUrl    String?
+  categoryId  String?
+  views       Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  favorites     Favorite[]
+  viewEvents    ProductView[]
+  productPrices ProductPrice[]
+
+  @@index([categoryId])
+  @@index([active])
+  @@map("products")
+}
+
+model ProductView {
+  id        String   @id @default(uuid())
+  productId String
+  viewedAt  DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([viewedAt])
+  @@map("product_views")
+}
+
+model Order {
+  id           String   @id @default(uuid())
+  userId       String
+  total        Float
+  observations String?
+  items        String   // JSON stringified items
+  paymentMethod String? // Novo campo para o método de pagamento
+  status        String   @default("PENDING")
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("orders")
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@map("favorites")
+}
+
+model Setting {
+  id    String @id @default(uuid())
+  key   String @unique
+  value String
+
+  @@map("settings")
+}
+
+model Neighborhood {
+  id           String   @id @default(uuid())
+  name         String   @unique
+  deliveryFee  Float
+  active       Boolean  @default(true)
+  photoUrl    String?  // Foto da fachada do mercado
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  users        User[]   
+  productPrices ProductPrice[]
+
+  @@map("neighborhoods")
+}
+
+// Preços de produtos por condomínio
+model ProductPrice {
+  id             String   @id @default(uuid())
+  productId      String
+  neighborhoodId String
+  price          Float
+  promoPrice     Float?
+  isPromotion    Boolean  @default(false)
+  stock          Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  product      Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  neighborhood Neighborhood @relation(fields: [neighborhoodId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, neighborhoodId])
+  @@index([productId])
+  @@index([neighborhoodId])
+  @@map("product_prices")
+}

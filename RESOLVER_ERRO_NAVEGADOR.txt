@@ -1,0 +1,117 @@
+═══════════════════════════════════════════════════════════════
+          🔧 RESOLVER ERRO AO ABRIR NO NAVEGADOR
+═══════════════════════════════════════════════════════════════
+
+📋 PROBLEMAS COMUNS E SOLUÇÕES
+═══════════════════════════════════════════════════════════════
+
+1️⃣ ERRO: "Não é possível acessar esse site" / "ERR_CONNECTION_REFUSED"
+───────────────────────────────────────────────────────────────
+
+   CAUSA: O servidor não está rodando
+
+   SOLUÇÃO:
+   → Execute: abrir-aplicacao.bat
+   → OU abra PowerShell e execute: npm run dev
+   → Aguarde aparecer: "Ready" ou "Local: http://localhost:3000"
+   → Depois abra o navegador em: http://localhost:3000
+
+2️⃣ ERRO: "Port 3000 is already in use"
+───────────────────────────────────────────────────────────────
+
+   CAUSA: Outro processo está usando a porta 3000
+
+   SOLUÇÃO:
+   → Execute: limpar-e-reiniciar.bat
+   → Este script vai encerrar processos antigos automaticamente
+   → OU manualmente:
+     • Abra PowerShell como Administrador
+     • Execute: netstat -ano | findstr ":3000"
+     • Anote o PID (último número)
+     • Execute: taskkill /F /PID [número]
+
+3️⃣ ERRO: "Prisma Client not generated"
+───────────────────────────────────────────────────────────────
+
+   CAUSA: Prisma Client não foi gerado ou está desatualizado
+
+   SOLUÇÃO:
+   → Execute: npx prisma generate
+   → Depois: npm run dev
+
+4️⃣ ERRO: Página em branco ou erro 500
+───────────────────────────────────────────────────────────────
+
+   CAUSA: Cache do Next.js corrompido ou banco de dados com problema
+
+   SOLUÇÃO:
+   → Execute: limpar-e-reiniciar.bat
+   → Este script limpa o cache e regenera tudo
+
+5️⃣ ERRO: "Cannot connect to database"
+───────────────────────────────────────────────────────────────
+
+   CAUSA: Banco de dados SQLite está bloqueado ou corrompido
+
+   SOLUÇÃO:
+   → Feche todas as janelas do servidor
+   → Feche o Prisma Studio se estiver aberto
+   → Execute: npx prisma db push
+   → Depois: npm run dev
+
+═══════════════════════════════════════════════════════════════
+
+🚀 SOLUÇÃO RÁPIDA (RECOMENDADO)
+═══════════════════════════════════════════════════════════════
+
+1. Dê duplo clique em: limpar-e-reiniciar.bat
+
+   Este script faz tudo automaticamente:
+   ✅ Encerra processos antigos
+   ✅ Limpa cache
+   ✅ Regenera Prisma Client
+   ✅ Inicia servidor
+   ✅ Abre navegador
+
+2. Aguarde alguns segundos
+
+3. A aplicação deve abrir automaticamente
+
+═══════════════════════════════════════════════════════════════
+
+📝 VERIFICAÇÃO MANUAL
+═══════════════════════════════════════════════════════════════
+
+Se ainda não funcionar, verifique:
+
+□ Servidor está rodando?
+   → Abra: http://localhost:3000
+   → Se não abrir, o servidor não está rodando
+
+□ Porta 3000 está livre?
+   → Execute: netstat -ano | findstr ":3000"
+   → Se aparecer algo, há processo usando a porta
+
+□ Prisma Client está gerado?
+   → Verifique se existe: node_modules\.prisma
+   → Se não existir: npx prisma generate
+
+□ Banco de dados existe?
+   → Verifique se existe: prisma\dev.db
+   → Se não existir: npx prisma db push
+
+═══════════════════════════════════════════════════════════════
+
+💡 DICA IMPORTANTE
+═══════════════════════════════════════════════════════════════
+
+Sempre que fechar a aplicação:
+   • Feche a janela do servidor (Ctrl+C)
+   • Depois feche o navegador
+   
+Ao abrir novamente:
+   • Use: abrir-aplicacao.bat
+   • OU: limpar-e-reiniciar.bat (se houver problemas)
+
+═══════════════════════════════════════════════════════════════
+

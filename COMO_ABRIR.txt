@@ -1,0 +1,54 @@
+═══════════════════════════════════════════════════════════════
+          🛒 MERCADO AUTÔNOMO - COMO ABRIR A APLICAÇÃO
+═══════════════════════════════════════════════════════════════
+
+📋 INSTRUÇÕES RÁPIDAS
+═══════════════════════════════════════════════════════════════
+
+1. Dê um DUPLO CLIQUE no arquivo:
+   
+   → abrir-aplicacao.bat (RECOMENDADO)
+      • Verifica tudo automaticamente
+      • Instala dependências se necessário
+      • Mais seguro e completo
+   
+   OU
+   
+   → abrir-simples.bat (RÁPIDO)
+      • Versão mais simples
+      • Inicia direto
+
+2. Aguarde alguns segundos...
+
+3. O navegador abrirá automaticamente em:
+   http://localhost:3000
+
+═══════════════════════════════════════════════════════════════
+
+⚠️ IMPORTANTE
+═══════════════════════════════════════════════════════════════
+
+• Mantenha a janela do servidor ABERTA enquanto usar a aplicação
+• Para PARAR o servidor, feche a janela "Mercado Autônomo - Servidor"
+  ou pressione Ctrl+C nela
+• Se aparecer erro, verifique a janela do servidor para ver detalhes
+
+═══════════════════════════════════════════════════════════════
+
+🔧 PROBLEMAS?
+═══════════════════════════════════════════════════════════════
+
+Se não funcionar:
+
+1. Verifique se Node.js está instalado:
+   → Abra PowerShell e digite: node --version
+   → Se não aparecer versão, instale em: https://nodejs.org/
+
+2. Execute manualmente:
+   → Abra PowerShell nesta pasta
+   → Digite: npm install
+   → Depois: npm run dev
+   → Abra navegador em: http://localhost:3000
+
+═══════════════════════════════════════════════════════════════
+

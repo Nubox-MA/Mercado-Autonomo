@@ -1,0 +1,139 @@
+═══════════════════════════════════════════════════════════════════════════
+                    🛒 MERCADO AUTÔNOMO - CATÁLOGO DIGITAL
+                              COMECE POR AQUI!
+═══════════════════════════════════════════════════════════════════════════
+
+📋 CHECKLIST DE INSTALAÇÃO
+══════════════════════════════════════════════════════════════════════════
+
+□ 1. TEM PostgreSQL INSTALADO?
+     → Não? Baixe em: https://www.postgresql.org/download/
+     → Instale e anote a senha do usuário 'postgres'
+
+□ 2. TEM Node.js INSTALADO?
+     → Não? Baixe em: https://nodejs.org/ (versão LTS)
+
+□ 3. CRIAR BANCO DE DADOS
+     → Abra pgAdmin ou terminal
+     → Execute: CREATE DATABASE mercado_autonomo;
+
+□ 4. CRIAR ARQUIVO .env
+     → Crie um arquivo chamado ".env" na pasta raiz
+     → Cole o conteúdo abaixo (ajuste a senha):
+
+     DATABASE_URL="postgresql://postgres:SUASENHA@localhost:5432/mercado_autonomo?schema=public"
+     JWT_SECRET="minha_chave_secreta_123456_mude_isso"
+     NEXT_PUBLIC_API_URL="http://localhost:3000"
+
+     IMPORTANTE: Substitua "SUASENHA" pela senha do seu PostgreSQL!
+
+□ 5. ABRIR TERMINAL NESTA PASTA
+     → Shift + Botão direito → "Abrir PowerShell aqui"
+     → Ou use o terminal do VS Code
+
+□ 6. EXECUTAR COMANDOS (um de cada vez):
+
+     npm install
+     npx prisma generate
+     npx prisma migrate dev --name init
+     npx prisma db seed
+     npm run dev
+
+□ 7. ABRIR NAVEGADOR
+     → Acesse: http://localhost:3000
+
+═══════════════════════════════════════════════════════════════════════════
+
+🔑 CREDENCIAIS DE ACESSO
+══════════════════════════════════════════════════════════════════════════
+
+ADMINISTRADOR (gerenciar produtos):
+  CPF: 00000000000
+  Senha: admin123
+
+MORADOR (apenas consultar):
+  CPF: Qualquer CPF com 11 dígitos (ex: 12345678901)
+  Nome: Seu nome completo
+  (O cadastro é feito automaticamente!)
+
+═══════════════════════════════════════════════════════════════════════════
+
+📚 DOCUMENTAÇÃO DISPONÍVEL
+══════════════════════════════════════════════════════════════════════════
+
+Para mais detalhes, consulte:
+
+  📖 README.md              → Visão geral completa do projeto
+  📖 QUICK_START.md         → Guia de início rápido (5 minutos)
+  📖 INSTALACAO.md          → Guia detalhado passo a passo
+  📖 FUNCIONALIDADES.md     → Lista completa de funcionalidades
+  📖 API_DOCS.md            → Documentação da API REST
+  📖 PROJETO_COMPLETO.md    → Resumo de tudo que foi criado
+
+═══════════════════════════════════════════════════════════════════════════
+
+❓ PROBLEMAS COMUNS
+══════════════════════════════════════════════════════════════════════════
+
+ERRO: "Cannot connect to database"
+  → Verifique se o PostgreSQL está rodando
+  → Verifique a senha no arquivo .env
+  → Certifique-se que o banco foi criado
+
+ERRO: "Prisma Client not generated"
+  → Execute: npx prisma generate
+
+ERRO: "Port 3000 already in use"
+  → Execute: npm run dev -- -p 3001
+  → Acesse: http://localhost:3001
+
+═══════════════════════════════════════════════════════════════════════════
+
+🎯 PRÓXIMOS PASSOS APÓS INSTALAR
+══════════════════════════════════════════════════════════════════════════
+
+1. Faça login como ADMIN (CPF: 00000000000, Senha: admin123)
+2. Clique no ícone de engrenagem (⚙️) no topo
+3. Acesse "Produtos"
+4. Veja os 10 produtos de exemplo
+5. Adicione seus produtos reais
+6. Faça upload das fotos dos produtos
+7. Teste como morador (saia e entre com outro CPF)
+
+═══════════════════════════════════════════════════════════════════════════
+
+💡 DICAS IMPORTANTES
+══════════════════════════════════════════════════════════════════════════
+
+  • Mantenha o terminal aberto enquanto usa a aplicação
+  • Use Ctrl+C para parar o servidor
+  • Execute "npx prisma studio" para ver o banco visualmente
+  • Faça backup do banco regularmente
+  • Mude a senha do admin após primeiro acesso
+
+═══════════════════════════════════════════════════════════════════════════
+
+✨ FERRAMENTAS ÚTEIS
+══════════════════════════════════════════════════════════════════════════
+
+Ver banco de dados visualmente:
+  npx prisma studio
+  (abre em http://localhost:5555)
+
+Resetar banco (CUIDADO: apaga tudo):
+  npx prisma migrate reset
+
+Parar o servidor:
+  Ctrl + C (no terminal)
+
+═══════════════════════════════════════════════════════════════════════════
+
+🎉 PRONTO!
+
+Agora é só seguir o checklist acima.
+Qualquer dúvida, consulte os arquivos .md de documentação.
+
+Bom uso! 🚀
+
+═══════════════════════════════════════════════════════════════════════════
+
