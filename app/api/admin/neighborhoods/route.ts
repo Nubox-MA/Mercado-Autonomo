@@ -5,11 +5,21 @@ import { authMiddleware } from '@/lib/middleware'
 export async function GET(request: NextRequest) {
   try {
     const neighborhoods = await prisma.neighborhood.findMany({
+      where: { active: true },
       orderBy: { name: 'asc' }
     })
     return NextResponse.json(neighborhoods)
-  } catch (error) {
-    return NextResponse.json({ error: 'Erro ao buscar locais' }, { status: 500 })
+  } catch (error: any) {
+    console.error('Error fetching neighborhoods:', error)
+    console.error('Error details:', {
+      message: error?.message,
+      code: error?.code,
+      meta: error?.meta
+    })
+    return NextResponse.json({ 
+      error: 'Erro ao buscar locais',
+      details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+    }, { status: 500 })
   }
 }
 
