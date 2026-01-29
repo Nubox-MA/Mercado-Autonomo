@@ -15,9 +15,13 @@ try {
       api_key: process.env.CLOUDINARY_API_KEY,
       api_secret: process.env.CLOUDINARY_API_SECRET,
     })
+    console.log('Cloudinary configurado:', process.env.CLOUDINARY_CLOUD_NAME)
+  } else {
+    console.warn('Cloudinary não configurado - CLOUDINARY_CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME, 'UPLOAD_MODE:', process.env.UPLOAD_MODE)
   }
 } catch (error) {
-  console.warn('Cloudinary não configurado, usando upload local')
+  console.error('Erro ao configurar Cloudinary:', error)
+  console.warn('Usando upload local')
 }
 
 export async function POST(req: NextRequest) {
@@ -61,26 +65,42 @@ export async function POST(req: NextRequest) {
 
     // Se Cloudinary estiver configurado e modo for cloudinary, usar Cloudinary
     if (cloudinary && process.env.UPLOAD_MODE === 'cloudinary') {
-      // Converter para base64
-      const base64 = buffer.toString('base64')
-      const dataURI = `data:${file.type};base64,${base64}`
+      try {
+        // Converter para base64
+        const base64 = buffer.toString('base64')
+        const dataURI = `data:${file.type};base64,${base64}`
 
-      // Upload para Cloudinary
-      const result = await new Promise((resolve, reject) => {
-        cloudinary.uploader.upload(
-          dataURI,
-          {
-            folder: 'mercado-autonomo',
-            resource_type: 'auto',
+        // Upload para Cloudinary
+        const result = await new Promise((resolve, reject) => {
+          cloudinary.uploader.upload(
+            dataURI,
+            {
+              folder: 'mercado-autonomo',
+              resource_type: 'auto',
+            },
+            (error: any, result: any) => {
+              if (error) {
+                console.error('Cloudinary upload error:', error)
+                reject(error)
+              } else {
+                console.log('Cloudinary upload success:', result.secure_url)
+                resolve(result)
+              }
+            }
+          )
+        }) as any
+
+        return NextResponse.json({ imageUrl: result.secure_url })
+      } catch (cloudinaryError: any) {
+        console.error('Erro no upload Cloudinary:', cloudinaryError)
+        return NextResponse.json(
+          { 
+            error: 'Erro ao fazer upload no Cloudinary',
+            details: process.env.NODE_ENV === 'development' ? cloudinaryError.message : undefined
           },
-          (error: any, result: any) => {
-            if (error) reject(error)
-            else resolve(result)
-          }
+          { status: 500 }
         )
-      }) as any
-
-      return NextResponse.json({ imageUrl: result.secure_url })
+      }
     }
 
     // Caso contrário, usar upload local (desenvolvimento)
@@ -101,10 +121,20 @@ export async function POST(req: NextRequest) {
     const imageUrl = `/uploads/${filename}`
 
     return NextResponse.json({ imageUrl })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Upload error:', error)
+    console.error('Error details:', {
+      message: error?.message,
+      stack: error?.stack,
+      cloudinary: !!cloudinary,
+      uploadMode: process.env.UPLOAD_MODE,
+      hasCloudName: !!process.env.CLOUDINARY_CLOUD_NAME
+    })
     return NextResponse.json(
-      { error: 'Erro ao fazer upload da imagem' },
+      { 
+        error: 'Erro ao fazer upload da imagem',
+        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+      },
       { status: 500 }
     )
   }
