@@ -247,10 +247,10 @@ export default function ProductsPage() {
         console.log('Atualizando produto:', editingProduct.id, data)
         try {
           const response = await axios.put(`/api/products/${editingProduct.id}`, data, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
+          headers: { Authorization: `Bearer ${token}` },
+        })
           console.log('Produto atualizado com sucesso:', response.data)
-          toast.success('Produto atualizado!')
+        toast.success('Produto atualizado!')
         } catch (error: any) {
           console.error('Erro ao atualizar produto:', error)
           console.error('Resposta do erro:', error.response?.data)
@@ -409,7 +409,21 @@ export default function ProductsPage() {
       setFormData((prev) => ({ ...prev, imageUrl: response.data.imageUrl }))
       toast.success('Imagem enviada!')
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Erro ao enviar imagem')
+      console.error('Erro ao fazer upload:', {
+        message: error?.message,
+        response: error?.response?.data,
+        status: error?.response?.status,
+        details: error?.response?.data?.details,
+        context: error?.response?.data?.context,
+        httpCode: error?.response?.data?.httpCode,
+        errorName: error?.response?.data?.errorName
+      })
+      
+      const errorMessage = error?.response?.data?.error || 'Erro ao enviar imagem'
+      const errorDetails = error?.response?.data?.details
+      const fullMessage = errorDetails ? `${errorMessage}: ${errorDetails}` : errorMessage
+      
+      toast.error(fullMessage)
     } finally {
       setUploading(false)
     }
@@ -493,26 +507,26 @@ export default function ProductsPage() {
     <div className="space-y-6">
       <div className="space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <h1 className="text-3xl font-bold">Produtos</h1>
+        <h1 className="text-3xl font-bold">Produtos</h1>
           <div className="flex items-center gap-3 flex-wrap">
-            <button
+          <button
               onClick={() => setShowDeleteAllModal(true)}
               className="btn-secondary text-red-600 border-red-200 hover:bg-red-50 flex items-center gap-2 h-12"
-            >
+          >
               <Trash2 size={20} />
               Apagar Todos
-            </button>
-            <button
-              onClick={() => {
-                resetForm()
-                setShowModal(true)
-              }}
-              className="btn-primary flex items-center gap-2 h-12"
-            >
-              <Plus size={20} />
-              Novo Produto
-            </button>
-          </div>
+          </button>
+          <button
+            onClick={() => {
+              resetForm()
+              setShowModal(true)
+            }}
+            className="btn-primary flex items-center gap-2 h-12"
+          >
+            <Plus size={20} />
+            Novo Produto
+          </button>
+        </div>
         </div>
 
         {/* Barra de Pesquisa e Filtros */}
@@ -720,8 +734,8 @@ export default function ProductsPage() {
                     className="input-field"
                     rows={3}
                       placeholder="Descreva o produto..."
-                    />
-                  </div>
+                  />
+                </div>
 
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -763,11 +777,11 @@ export default function ProductsPage() {
                     {!isCreatingCategory ? (
                   <select
                     value={formData.categoryId}
-                    onChange={(e) =>
+                      onChange={(e) =>
                       setFormData({ ...formData, categoryId: e.target.value })
-                    }
-                    className="input-field"
-                        required
+                      }
+                      className="input-field"
+                      required
                   >
                         <option value="">Selecione uma categoria</option>
                     {categories.map((cat) => (
@@ -802,7 +816,7 @@ export default function ProductsPage() {
                               <div className="flex items-center gap-2">
                                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                                 Criando...
-                              </div>
+                  </div>
                             ) : (
                               'Criar Categoria'
                             )}
@@ -822,7 +836,7 @@ export default function ProductsPage() {
                     )}
                 </div>
 
-                <div>
+                  <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">
                       Imagem do Produto
                     </label>
@@ -857,29 +871,29 @@ export default function ProductsPage() {
                 </div>
 
                   <div className="flex items-center gap-6 pt-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.isNew}
-                        onChange={(e) =>
-                          setFormData({ ...formData, isNew: e.target.checked })
-                        }
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.isNew}
+                      onChange={(e) =>
+                        setFormData({ ...formData, isNew: e.target.checked })
+                      }
                         className="w-5 h-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                      />
+                    />
                       <span className="text-sm font-medium text-gray-700">Marcar como Novidade</span>
-                    </label>
+                  </label>
 
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.active}
-                        onChange={(e) =>
-                          setFormData({ ...formData, active: e.target.checked })
-                        }
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.active}
+                      onChange={(e) =>
+                        setFormData({ ...formData, active: e.target.checked })
+                      }
                         className="w-5 h-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                      />
+                    />
                       <span className="text-sm font-medium text-gray-700">Disponível para Venda</span>
-                    </label>
+                  </label>
                   </div>
                 </div>
 
@@ -956,10 +970,10 @@ export default function ProductsPage() {
                             {isAvailable ? (
                               <>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  <div>
+                <div>
                                     <label className="block text-sm font-bold text-gray-700 mb-2">
                                       Preço Normal (R$) *
-                                    </label>
+                  </label>
                                     <input
                                       type="number"
                                       step="0.01"
@@ -994,7 +1008,7 @@ export default function ProductsPage() {
                                       step="0.01"
                                       min="0.01"
                                       value={priceData.promoPrice}
-                                      onChange={(e) =>
+                    onChange={(e) =>
                                         setCondominiumPrices({
                                           ...condominiumPrices,
                                           [condominium.id]: {
@@ -1002,16 +1016,16 @@ export default function ProductsPage() {
                                             promoPrice: e.target.value,
                                           },
                                         })
-                                      }
-                                      className="input-field"
+                    }
+                    className="input-field"
                                       placeholder="Opcional"
                                     />
                                   </div>
-                                </div>
-                                
+                </div>
+
                                 <div className="mt-4">
                                   <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
+                    <input
                                       type="checkbox"
                                       checked={priceData.isPromotion}
                                       onChange={(e) =>
@@ -1029,7 +1043,7 @@ export default function ProductsPage() {
                                     <span className="text-sm font-medium text-gray-700">
                                       Ativar promoção
                                     </span>
-                                  </label>
+                    </label>
                                   {priceData.isPromotion && !priceData.promoPrice && (
                                     <p className="text-xs text-red-500 mt-1">
                                       Defina um preço de promoção para ativar o badge
@@ -1045,12 +1059,12 @@ export default function ProductsPage() {
                                 <p className="text-xs text-gray-500 mt-1">
                                   Este produto não aparecerá no catálogo deste condomínio
                                 </p>
-                              </div>
-                            )}
-                          </div>
+                      </div>
+                    )}
+                  </div>
                         )
                       })}
-                    </div>
+                </div>
                   </div>
                 )}
 

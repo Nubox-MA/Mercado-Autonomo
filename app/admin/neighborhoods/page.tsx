@@ -157,7 +157,21 @@ export default function NeighborhoodsPage() {
       setFormData((prev) => ({ ...prev, photoUrl: response.data.imageUrl }))
       toast.success('Imagem enviada!')
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Erro ao enviar imagem')
+      console.error('Erro ao fazer upload:', {
+        message: error?.message,
+        response: error?.response?.data,
+        status: error?.response?.status,
+        details: error?.response?.data?.details,
+        context: error?.response?.data?.context,
+        httpCode: error?.response?.data?.httpCode,
+        errorName: error?.response?.data?.errorName
+      })
+      
+      const errorMessage = error?.response?.data?.error || 'Erro ao enviar imagem'
+      const errorDetails = error?.response?.data?.details
+      const fullMessage = errorDetails ? `${errorMessage}: ${errorDetails}` : errorMessage
+      
+      toast.error(fullMessage)
     } finally {
       setUploading(false)
     }

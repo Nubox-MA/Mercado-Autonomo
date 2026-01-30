@@ -128,17 +128,25 @@ export async function POST(req: NextRequest) {
         console.log('Upload concluído com sucesso:', result.secure_url)
         return NextResponse.json({ imageUrl: result.secure_url })
       } catch (cloudinaryError: any) {
-        console.error('Erro no upload Cloudinary (catch):', {
+        const errorDetails = {
           message: cloudinaryError?.message,
           http_code: cloudinaryError?.http_code,
           name: cloudinaryError?.name,
           stack: cloudinaryError?.stack,
           error: JSON.stringify(cloudinaryError, Object.getOwnPropertyNames(cloudinaryError))
-        })
+        }
+        
+        console.error('Erro no upload Cloudinary (catch):', errorDetails)
+        
+        // Retornar detalhes completos do erro para o frontend
         return NextResponse.json(
           { 
             error: 'Erro ao fazer upload no Cloudinary',
-            details: cloudinaryError?.message || cloudinaryError?.http_code || 'Erro desconhecido'
+            details: cloudinaryError?.message || cloudinaryError?.http_code || 'Erro desconhecido',
+            httpCode: cloudinaryError?.http_code,
+            errorName: cloudinaryError?.name,
+            // Em desenvolvimento, incluir stack trace
+            ...(process.env.NODE_ENV === 'development' ? { stack: cloudinaryError?.stack } : {})
           },
           { status: 500 }
         )
@@ -164,26 +172,36 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ imageUrl })
   } catch (error: any) {
-    console.error('Upload error (catch geral):', {
+    const errorDetails = {
       message: error?.message,
       stack: error?.stack,
       name: error?.name,
       error: JSON.stringify(error, Object.getOwnPropertyNames(error))
-    })
+    }
+    
+    console.error('Upload error (catch geral):', errorDetails)
     
     const cloudinaryInstance = await getCloudinary()
-    console.error('Error context:', {
+    const errorContext = {
       cloudinary: !!cloudinaryInstance,
       uploadMode: process.env.UPLOAD_MODE,
       hasCloudName: !!process.env.CLOUDINARY_CLOUD_NAME,
       hasApiKey: !!process.env.CLOUDINARY_API_KEY,
       hasApiSecret: !!process.env.CLOUDINARY_API_SECRET
-    })
+    }
+    
+    console.error('Error context:', errorContext)
     
     return NextResponse.json(
       { 
         error: 'Erro ao fazer upload da imagem',
-        details: process.env.NODE_ENV === 'development' ? error?.message : 'Verifique os logs do servidor'
+        details: error?.message || 'Erro desconhecido',
+        context: errorContext,
+        // Em desenvolvimento, incluir mais detalhes
+        ...(process.env.NODE_ENV === 'development' ? { 
+          stack: error?.stack,
+          fullError: errorDetails
+        } : {})
       },
       { status: 500 }
     )
