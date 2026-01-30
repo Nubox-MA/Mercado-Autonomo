@@ -211,7 +211,7 @@ export default function NeighborhoodsPage() {
                     alt={neighborhood.name}
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="object-cover"
+                    className="object-contain"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary-100 to-primary-200">
@@ -329,7 +329,7 @@ export default function NeighborhoodsPage() {
                           alt="Preview"
                           fill
                           sizes="(max-width: 768px) 100vw, 400px"
-                          className="object-cover"
+                          className="object-contain"
                         />
                       </div>
                     )}
