@@ -24,17 +24,28 @@ async function getCloudinary() {
       return null
     }
 
+    // Limpar espaços e caracteres extras
+    const cleanCloudName = cloudName.trim()
+    const cleanApiKey = apiKey.trim()
+    const cleanApiSecret = apiSecret.trim()
+
+    // Validar formato do cloud_name (deve ter apenas letras, números e hífens)
+    if (!/^[a-z0-9-]+$/.test(cleanCloudName)) {
+      console.error('Cloudinary cloud_name inválido:', cleanCloudName)
+      return null
+    }
+
     // Import dinâmico do Cloudinary
     const cloudinaryModule = await import('cloudinary')
     const cloudinary = cloudinaryModule.v2
 
     cloudinary.config({
-      cloud_name: cloudName,
-      api_key: apiKey,
-      api_secret: apiSecret,
+      cloud_name: cleanCloudName,
+      api_key: cleanApiKey,
+      api_secret: cleanApiSecret,
     })
 
-    console.log('Cloudinary configurado com sucesso:', cloudName)
+    console.log('Cloudinary configurado com sucesso:', cleanCloudName)
     return cloudinary
   } catch (error: any) {
     console.error('Erro ao configurar Cloudinary:', {
