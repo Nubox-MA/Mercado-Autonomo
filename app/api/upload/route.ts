@@ -8,19 +8,39 @@ import { existsSync } from 'fs'
 async function getCloudinary() {
   try {
     const uploadMode = process.env.UPLOAD_MODE
+    
+    if (uploadMode !== 'cloudinary') {
+      console.warn('UPLOAD_MODE não é "cloudinary"')
+      return null
+    }
+
+    // Import dinâmico do Cloudinary
+    const cloudinaryModule = await import('cloudinary')
+    const cloudinary = cloudinaryModule.v2
+
+    // Método 1: Usar CLOUDINARY_URL (recomendado - mais simples)
+    const cloudinaryUrl = process.env.CLOUDINARY_URL
+    if (cloudinaryUrl) {
+      console.log('Usando CLOUDINARY_URL para configurar Cloudinary')
+      cloudinary.config(cloudinaryUrl.trim())
+      console.log('Cloudinary configurado com sucesso via CLOUDINARY_URL')
+      return cloudinary
+    }
+
+    // Método 2: Usar variáveis separadas (fallback)
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME
     const apiKey = process.env.CLOUDINARY_API_KEY
     const apiSecret = process.env.CLOUDINARY_API_SECRET
 
-    console.log('Verificando configuração Cloudinary:', {
-      uploadMode,
+    console.log('Verificando configuração Cloudinary (variáveis separadas):', {
       hasCloudName: !!cloudName,
       hasApiKey: !!apiKey,
       hasApiSecret: !!apiSecret
     })
 
-    if (!cloudName || !apiKey || !apiSecret || uploadMode !== 'cloudinary') {
-      console.warn('Cloudinary não configurado corretamente')
+    if (!cloudName || !apiKey || !apiSecret) {
+      console.warn('Cloudinary não configurado: faltam variáveis de ambiente')
+      console.warn('Use CLOUDINARY_URL ou configure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY e CLOUDINARY_API_SECRET')
       return null
     }
 
@@ -34,10 +54,6 @@ async function getCloudinary() {
       console.error('Cloudinary cloud_name inválido:', cleanCloudName)
       return null
     }
-
-    // Import dinâmico do Cloudinary
-    const cloudinaryModule = await import('cloudinary')
-    const cloudinary = cloudinaryModule.v2
 
     cloudinary.config({
       cloud_name: cleanCloudName,
