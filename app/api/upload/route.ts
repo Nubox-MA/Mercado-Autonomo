@@ -142,10 +142,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ imageUrl })
   } catch (error: any) {
     console.error('Upload error:', error)
+    const cloudinaryInstance = getCloudinary()
     console.error('Error details:', {
       message: error?.message,
       stack: error?.stack,
-      cloudinary: !!cloudinary,
+      cloudinary: !!cloudinaryInstance,
       uploadMode: process.env.UPLOAD_MODE,
       hasCloudName: !!process.env.CLOUDINARY_CLOUD_NAME
     })
