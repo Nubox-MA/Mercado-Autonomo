@@ -5,23 +5,42 @@ import { join } from 'path'
 import { existsSync } from 'fs'
 
 // Função para configurar Cloudinary
-function getCloudinary() {
+async function getCloudinary() {
   try {
-    if (process.env.CLOUDINARY_CLOUD_NAME && process.env.UPLOAD_MODE === 'cloudinary') {
-      const cloudinary = require('cloudinary').v2
-      cloudinary.config({
-        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-        api_key: process.env.CLOUDINARY_API_KEY,
-        api_secret: process.env.CLOUDINARY_API_SECRET,
-      })
-      console.log('Cloudinary configurado:', process.env.CLOUDINARY_CLOUD_NAME)
-      return cloudinary
-    } else {
-      console.warn('Cloudinary não configurado - CLOUDINARY_CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME, 'UPLOAD_MODE:', process.env.UPLOAD_MODE)
+    const uploadMode = process.env.UPLOAD_MODE
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME
+    const apiKey = process.env.CLOUDINARY_API_KEY
+    const apiSecret = process.env.CLOUDINARY_API_SECRET
+
+    console.log('Verificando configuração Cloudinary:', {
+      uploadMode,
+      hasCloudName: !!cloudName,
+      hasApiKey: !!apiKey,
+      hasApiSecret: !!apiSecret
+    })
+
+    if (!cloudName || !apiKey || !apiSecret || uploadMode !== 'cloudinary') {
+      console.warn('Cloudinary não configurado corretamente')
       return null
     }
-  } catch (error) {
-    console.error('Erro ao configurar Cloudinary:', error)
+
+    // Import dinâmico do Cloudinary
+    const cloudinaryModule = await import('cloudinary')
+    const cloudinary = cloudinaryModule.v2
+
+    cloudinary.config({
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret,
+    })
+
+    console.log('Cloudinary configurado com sucesso:', cloudName)
+    return cloudinary
+  } catch (error: any) {
+    console.error('Erro ao configurar Cloudinary:', {
+      message: error?.message,
+      stack: error?.stack
+    })
     return null
   }
 }
@@ -66,7 +85,7 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(bytes)
 
     // Verificar se deve usar Cloudinary
-    const cloudinary = getCloudinary()
+    const cloudinary = await getCloudinary()
     if (cloudinary && process.env.UPLOAD_MODE === 'cloudinary') {
       try {
         console.log('Iniciando upload para Cloudinary...')
@@ -86,14 +105,15 @@ export async function POST(req: NextRequest) {
             },
             (error: any, result: any) => {
               if (error) {
-                console.error('Cloudinary upload error:', {
+                console.error('Cloudinary upload callback error:', {
                   message: error.message,
                   http_code: error.http_code,
-                  name: error.name
+                  name: error.name,
+                  error: JSON.stringify(error, Object.getOwnPropertyNames(error))
                 })
                 reject(error)
               } else {
-                console.log('Cloudinary upload success:', result.secure_url)
+                console.log('Cloudinary upload success:', result?.secure_url)
                 resolve(result)
               }
             }
@@ -101,21 +121,24 @@ export async function POST(req: NextRequest) {
         })
 
         if (!result || !result.secure_url) {
+          console.error('Cloudinary retornou resultado inválido:', result)
           throw new Error('Cloudinary retornou resultado inválido')
         }
 
+        console.log('Upload concluído com sucesso:', result.secure_url)
         return NextResponse.json({ imageUrl: result.secure_url })
       } catch (cloudinaryError: any) {
-        console.error('Erro no upload Cloudinary:', {
+        console.error('Erro no upload Cloudinary (catch):', {
           message: cloudinaryError?.message,
           http_code: cloudinaryError?.http_code,
           name: cloudinaryError?.name,
-          stack: cloudinaryError?.stack
+          stack: cloudinaryError?.stack,
+          error: JSON.stringify(cloudinaryError, Object.getOwnPropertyNames(cloudinaryError))
         })
         return NextResponse.json(
           { 
             error: 'Erro ao fazer upload no Cloudinary',
-            details: cloudinaryError?.message || 'Erro desconhecido'
+            details: cloudinaryError?.message || cloudinaryError?.http_code || 'Erro desconhecido'
           },
           { status: 500 }
         )
@@ -141,19 +164,26 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ imageUrl })
   } catch (error: any) {
-    console.error('Upload error:', error)
-    const cloudinaryInstance = getCloudinary()
-    console.error('Error details:', {
+    console.error('Upload error (catch geral):', {
       message: error?.message,
       stack: error?.stack,
+      name: error?.name,
+      error: JSON.stringify(error, Object.getOwnPropertyNames(error))
+    })
+    
+    const cloudinaryInstance = await getCloudinary()
+    console.error('Error context:', {
       cloudinary: !!cloudinaryInstance,
       uploadMode: process.env.UPLOAD_MODE,
-      hasCloudName: !!process.env.CLOUDINARY_CLOUD_NAME
+      hasCloudName: !!process.env.CLOUDINARY_CLOUD_NAME,
+      hasApiKey: !!process.env.CLOUDINARY_API_KEY,
+      hasApiSecret: !!process.env.CLOUDINARY_API_SECRET
     })
+    
     return NextResponse.json(
       { 
         error: 'Erro ao fazer upload da imagem',
-        details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+        details: process.env.NODE_ENV === 'development' ? error?.message : 'Verifique os logs do servidor'
       },
       { status: 500 }
     )
