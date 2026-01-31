@@ -225,16 +225,26 @@ export async function POST(req: NextRequest) {
         // Determinar se produto está ativo
         const active = situacao === 'ativo' || situacao === 'disponível' || situacao === '' || !situacao
 
-        // Adicionar à lista de preview
-        const previewItem = {
-          name: productName,
-          description: null, // Descrição sempre null na aplicação
-          price: valor,
-          category: categoria,
-          active,
-          condominiums: condominiums.map((c) => c.name),
+        // Verificar se produto já existe (também no preview para mostrar corretamente)
+        const normalizedProductName = productName.toLowerCase().trim()
+        const productExists = existingProductNames.has(normalizedProductName)
+        
+        if (productExists) {
+          // Produto já existe - será adicionado à lista de "já existem"
+          results.skipped++
+          results.skippedList.push(`Linha ${i + 2}: "${productName}" já existe - preços serão adicionados`)
+        } else {
+          // Produto novo - adicionar à lista de preview
+          const previewItem = {
+            name: productName,
+            description: null, // Descrição sempre null na aplicação
+            price: valor,
+            category: categoria,
+            active,
+            condominiums: condominiums.map((c) => c.name),
+          }
+          results.preview.push(previewItem)
         }
-        results.preview.push(previewItem)
 
         // Se for confirmação, criar ou atualizar produto
         if (confirm) {
@@ -254,24 +264,23 @@ export async function POST(req: NextRequest) {
             
             // Se não encontrou no mapa, buscar no banco (pode ser produto novo ou nome com diferença de case)
             if (!product) {
+              // Buscar por nome exato (case-sensitive primeiro)
               product = await prisma.product.findFirst({
                 where: {
-                  name: productName, // Busca exata primeiro
+                  name: productName,
                 },
               })
               
-              // Se ainda não encontrou, buscar todos da categoria e comparar (case-insensitive)
+              // Se não encontrou, buscar todos os produtos e comparar case-insensitive
+              // (mais eficiente que buscar por categoria, pois pode haver produtos com mesmo nome em categorias diferentes)
               if (!product) {
-                const categoryProducts = await prisma.product.findMany({
-                  where: {
-                    categoryId: category.id,
-                  },
+                const allProducts = await prisma.product.findMany({
                   select: {
                     id: true,
                     name: true,
                   },
                 })
-                const found = categoryProducts.find(
+                const found = allProducts.find(
                   (p) => p.name.toLowerCase().trim() === normalizedProductName
                 )
                 if (found) {
@@ -279,6 +288,9 @@ export async function POST(req: NextRequest) {
                   // Adicionar ao mapa para próximas buscas
                   productNameMap.set(normalizedProductName, product)
                 }
+              } else {
+                // Adicionar ao mapa se encontrou por busca exata
+                productNameMap.set(normalizedProductName, product)
               }
             }
 
@@ -301,17 +313,43 @@ export async function POST(req: NextRequest) {
                 })
                 results.success++
                 
+                // Adicionar ao mapa e set para evitar duplicatas na mesma importação
+                productNameMap.set(normalizedProductName, product)
+                existingProductNames.add(normalizedProductName)
+                
                 if (i % 100 === 0) {
                   console.log(`Processados ${i + 1} produtos, ${results.success} criados`)
                 }
               } catch (createError: any) {
                 console.error(`Erro ao criar produto na linha ${i + 2}:`, createError)
-                throw new Error(`Erro ao criar produto: ${createError.message}`)
+                // Se o erro for de duplicata (unique constraint), tentar buscar o produto existente
+                if (createError.code === 'P2002' || createError.message?.includes('Unique constraint')) {
+                  console.log(`Produto "${productName}" já existe (erro de constraint), buscando...`)
+                  const existingProduct = await prisma.product.findFirst({
+                    where: {
+                      name: productName,
+                    },
+                  })
+                  if (existingProduct) {
+                    product = existingProduct
+                    productNameMap.set(normalizedProductName, product)
+                    existingProductNames.add(normalizedProductName)
+                    results.skipped++
+                    results.skippedList.push(`Linha ${i + 2}: "${productName}" já existe (detectado por constraint) - adicionando preços`)
+                  } else {
+                    throw new Error(`Erro ao criar produto: ${createError.message}`)
+                  }
+                } else {
+                  throw new Error(`Erro ao criar produto: ${createError.message}`)
+                }
               }
             } else {
               // Produto já existe - apenas adicionar preços para condomínios selecionados
-              results.skipped++
-              results.skippedList.push(`Linha ${i + 2}: "${productName}" já existe - adicionando preços para condomínios selecionados`)
+              // (não incrementar skipped aqui, pois já foi incrementado no preview)
+              if (!results.skippedList.some(msg => msg.includes(`"${productName}"`))) {
+                results.skipped++
+                results.skippedList.push(`Linha ${i + 2}: "${productName}" já existe - adicionando preços para condomínios selecionados`)
+              }
             }
 
             // Verificar quais condomínios já têm preço para este produto
@@ -350,8 +388,7 @@ export async function POST(req: NextRequest) {
               }
             }
 
-            // Adicionar ao set de produtos existentes para evitar duplicatas na mesma importação
-            existingProductNames.add(normalizedName)
+            // O set já foi atualizado acima quando o produto foi criado ou encontrado
           } catch (confirmError: any) {
             // Re-lançar erro para ser capturado pelo catch externo
             throw confirmError
