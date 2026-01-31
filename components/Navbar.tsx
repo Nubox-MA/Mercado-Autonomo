@@ -50,18 +50,18 @@ export default function Navbar() {
 
             <div className="flex items-center gap-0.5 sm:gap-2 ml-auto">
               {/* Carrinho sempre visível - PRIMEIRO */}
-              <Link
-                href="/cart"
-                className="relative hover:bg-primary-700 p-2 rounded-lg transition"
+                  <Link
+                    href="/cart"
+                    className="relative hover:bg-primary-700 p-2 rounded-lg transition"
                 title="Minha Lista"
-              >
-                <ShoppingCart size={22} />
-                {itemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                    {itemCount}
-                  </span>
-                )}
-              </Link>
+                  >
+                    <ShoppingCart size={22} />
+                    {itemCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                        {itemCount}
+                      </span>
+                    )}
+                  </Link>
 
               {/* Botão para trocar condomínio - SEGUNDO - só mostrar se não estiver na página de seleção */}
               {selectedCondominium && pathname !== '/select-condominium' && (
@@ -92,13 +92,13 @@ export default function Navbar() {
               {/* Se estiver logado como admin */}
               {user && isAdmin && (
                 <>
-                  <Link
-                    href="/admin"
-                    className="hover:bg-primary-700 p-2 rounded-lg transition"
-                    title="Painel Admin"
-                  >
-                    <Settings size={22} />
-                  </Link>
+                    <Link
+                      href="/admin"
+                      className="hover:bg-primary-700 p-2 rounded-lg transition"
+                      title="Painel Admin"
+                    >
+                      <Settings size={22} />
+                    </Link>
 
                   <div className="h-6 w-[1px] bg-primary-500 mx-1 hidden sm:block" />
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import axios from 'axios'
-import { Upload, FileSpreadsheet, CheckCircle, XCircle, AlertCircle, Edit2, Save, X } from 'lucide-react'
+import { Upload, FileSpreadsheet, CheckCircle, XCircle, AlertCircle, Edit2, Save, X, ChevronDown, ChevronUp } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface Condominium {
@@ -44,10 +44,24 @@ export default function ImportPage() {
   const [correctedProducts, setCorrectedProducts] = useState<any[]>([])
   const [editingErrorProduct, setEditingErrorProduct] = useState<ErrorProduct | null>(null)
   const [productCategoryMap, setProductCategoryMap] = useState<Record<number, string>>({})
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0, percentage: 0 })
+  const [uploadProgress, setUploadProgress] = useState(0) // Progresso do upload do arquivo
+  const [showSkippedList, setShowSkippedList] = useState(false) // Controla exibição da lista de produtos existentes
+  const [showErrorsList, setShowErrorsList] = useState(false) // Controla exibição da lista de erros
 
   useEffect(() => {
     fetchCondominiums()
     fetchCategories()
+  }, [])
+
+  // Resetar estados ao desmontar o componente (ao sair da página)
+  useEffect(() => {
+    return () => {
+      // Limpar estados ao sair da página
+      setConfirming(false)
+      setEditingErrorProduct(null)
+      setImportProgress({ current: 0, total: 0, percentage: 0 })
+    }
   }, [])
 
   const fetchCondominiums = async () => {
@@ -55,7 +69,8 @@ export default function ImportPage() {
       const response = await axios.get('/api/admin/neighborhoods')
       const active = response.data.filter((c: Condominium) => c.active)
       setCondominiums(active)
-      setSelectedCondominiums(active.map((c: Condominium) => c.id))
+      // Não selecionar nenhum condomínio inicialmente
+      setSelectedCondominiums([])
     } catch (error) {
       console.error('Error fetching condominiums:', error)
     }
@@ -92,12 +107,14 @@ export default function ImportPage() {
     }
 
     if (selectedCondominiums.length === 0) {
-      toast.error('Selecione pelo menos um condomínio')
+      toast.error('Selecione um condomínio')
       return
     }
 
     try {
       setUploading(true)
+      setUploadProgress(0) // Resetar progresso
+      
       const formData = new FormData()
       formData.append('file', file)
       formData.append('condominiums', JSON.stringify(selectedCondominiums))
@@ -118,16 +135,53 @@ export default function ImportPage() {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data',
         },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            // Calcular progresso do upload (primeiros 90%)
+            // Os últimos 10% são para processamento no servidor
+            const uploadPercent = Math.round((progressEvent.loaded * 90) / progressEvent.total)
+            setUploadProgress(uploadPercent)
+            console.log(`Upload: ${uploadPercent}% (${progressEvent.loaded}/${progressEvent.total} bytes)`)
+          } else if (progressEvent.loaded) {
+            // Se não tiver total, usar uma estimativa baseada no loaded
+            const estimatedPercent = Math.min(90, Math.round((progressEvent.loaded / (file.size || 1)) * 90))
+            setUploadProgress(estimatedPercent)
+          }
+        },
       })
+
+      // Quando o upload termina, mostrar 90% e simular processamento até 100%
+      setUploadProgress(90)
+      
+      // Simular processamento no servidor (últimos 10%)
+      let processingProgress = 90
+      const processingInterval = setInterval(() => {
+        processingProgress += 1
+        if (processingProgress <= 100) {
+          setUploadProgress(processingProgress)
+        } else {
+          clearInterval(processingInterval)
+        }
+      }, 100) // Atualizar a cada 100ms
 
       setImportResult(response.data.results)
       setIsPreview(response.data.isPreview || false)
+      
+      // Quando a resposta chegar, garantir 100%
+      clearInterval(processingInterval)
+      setUploadProgress(100)
+      
       toast.success(response.data.message)
     } catch (error: any) {
       console.error('Preview error:', error)
       toast.error(error.response?.data?.error || 'Erro ao processar arquivo')
+      setUploadProgress(0) // Resetar em caso de erro
     } finally {
       setUploading(false)
+      // Resetar progresso após 2 segundos
+      setTimeout(() => {
+        setUploadProgress(0)
+      }, 2000)
     }
   }
 
@@ -137,8 +191,18 @@ export default function ImportPage() {
       return
     }
 
+    let progressInterval: number | null = null
+    
     try {
       setConfirming(true)
+      
+      // Calcular total estimado de produtos para processar
+      const totalToProcess = importResult?.preview?.length || 0
+      const totalExisting = importResult?.skipped || 0
+      const totalEstimated = totalToProcess + totalExisting
+      
+      setImportProgress({ current: 0, total: totalEstimated, percentage: 0 })
+      
       const formData = new FormData()
       formData.append('file', file)
       formData.append('condominiums', JSON.stringify(selectedCondominiums))
@@ -157,7 +221,49 @@ export default function ImportPage() {
       console.log('Enviando importação...', {
         condominiums: selectedCondominiums,
         fileName: file.name,
+        totalEstimated,
       })
+
+      // Simular progresso baseado em estimativa de tempo
+      const startTime = Date.now()
+      const progressState = { lastProgress: 0 }
+      
+      progressInterval = setInterval(() => {
+        if (totalEstimated > 0) {
+          // Estimar progresso baseado em tempo
+          // Assumindo ~30-100ms por produto (dependendo se é novo ou existente)
+          const elapsed = Date.now() - startTime
+          
+          // Primeiros 10% são upload do arquivo (já coberto pelo onUploadProgress)
+          // Restante é processamento: produtos novos são mais lentos (~80ms), existentes são mais rápidos (~30ms)
+          const newProducts = totalToProcess
+          const existingProducts = totalExisting
+          const estimatedTimeForNew = newProducts * 80 // 80ms por produto novo
+          const estimatedTimeForExisting = existingProducts * 30 // 30ms por produto existente
+          const totalEstimatedTime = estimatedTimeForNew + estimatedTimeForExisting
+          
+          // Progresso do upload (primeiros 10%)
+          const uploadProgress = Math.min(10, progressState.lastProgress)
+          
+          // Progresso do processamento (restante 90%)
+          const processingElapsed = Math.max(0, elapsed - 1000) // Dar 1s para upload
+          const processingProgress = totalEstimatedTime > 0 
+            ? Math.min(90, Math.floor((processingElapsed / totalEstimatedTime) * 90))
+            : 0
+          
+          const estimatedProgress = Math.min(95, uploadProgress + processingProgress)
+          
+          // Garantir que o progresso sempre avance (não retroceda)
+          if (estimatedProgress > progressState.lastProgress) {
+            progressState.lastProgress = estimatedProgress
+            setImportProgress({
+              current: Math.floor((estimatedProgress / 100) * totalEstimated),
+              total: totalEstimated,
+              percentage: estimatedProgress
+            })
+          }
+        }
+      }, 300) // Atualizar a cada 300ms para ser mais suave
 
       const response = await axios.post('/api/admin/import', formData, {
         headers: {
@@ -165,7 +271,25 @@ export default function ImportPage() {
           'Content-Type': 'multipart/form-data',
         },
         timeout: 300000, // 5 minutos de timeout
+        onUploadProgress: (progressEvent) => {
+          // Progresso do upload do arquivo
+          if (progressEvent.total) {
+            const uploadProgress = Math.floor((progressEvent.loaded / progressEvent.total) * 10) // Primeiros 10%
+            setImportProgress(prev => ({
+              ...prev,
+              percentage: uploadProgress,
+              current: Math.floor((uploadProgress / 100) * totalEstimated)
+            }))
+          }
+        },
       })
+
+      if (progressInterval) {
+        clearInterval(progressInterval)
+      }
+      
+      // Atualizar progresso final
+      setImportProgress({ current: totalEstimated, total: totalEstimated, percentage: 100 })
 
       console.log('Resposta da importação:', response.data)
 
@@ -173,7 +297,24 @@ export default function ImportPage() {
       setIsPreview(false)
       
       const message = response.data.message || 'Importação concluída'
-      toast.success(message)
+      const successCount = response.data.results?.success || 0
+      const skippedCount = response.data.results?.skipped || 0
+      
+      // Feedback de conclusão mais destacado
+      toast.success(
+        `✅ Importação Finalizada!\n${successCount} produtos criados | ${skippedCount} preços adicionados`,
+        {
+          duration: 8000,
+          style: {
+            background: '#10b981',
+            color: '#fff',
+            fontSize: '16px',
+            padding: '20px',
+            borderRadius: '12px',
+            fontWeight: 'bold',
+          },
+        }
+      )
       
       // Não limpar o arquivo e resultado imediatamente para o usuário ver o resultado
       // setFile(null)
@@ -182,6 +323,11 @@ export default function ImportPage() {
       // setImportResult(null)
       setCorrectedProducts([])
       setProductCategoryMap({})
+      
+      // Resetar progresso após 2 segundos
+      setTimeout(() => {
+        setImportProgress({ current: 0, total: 0, percentage: 0 })
+      }, 2000)
     } catch (error: any) {
       console.error('Erro completo na importação:', {
         message: error.message,
@@ -203,7 +349,14 @@ export default function ImportPage() {
       if (error.response?.data) {
         console.error('Detalhes do erro:', error.response.data)
       }
+      
+      // Resetar progresso em caso de erro
+      setImportProgress({ current: 0, total: 0, percentage: 0 })
     } finally {
+      // Garantir que o intervalo seja limpo mesmo em caso de erro
+      if (progressInterval) {
+        clearInterval(progressInterval)
+      }
       setConfirming(false)
     }
   }
@@ -298,10 +451,10 @@ export default function ImportPage() {
         })
       }
 
-      toast.success(`${correctedProducts.length} produtos corrigidos foram adicionados!`)
-      setCorrectedProducts([])
+      const correctedCount = correctedProducts.length
+      toast.success(`${correctedCount} produtos corrigidos foram adicionados!`)
       
-      // Remover produtos corrigidos da lista de erros
+      // Remover produtos corrigidos da lista de erros ANTES de limpar o estado
       if (importResult?.errorProducts) {
         const correctedLines = correctedProducts.map((_, idx) => {
           const errorProduct = importResult.errorProducts.find((ep: ErrorProduct) => 
@@ -315,9 +468,11 @@ export default function ImportPage() {
           errorProducts: importResult.errorProducts.filter((ep: ErrorProduct) => 
             !correctedLines.includes(ep.line)
           ),
-          errors: importResult.errors - correctedProducts.length,
+          errors: importResult.errors - correctedCount,
         })
       }
+      
+      setCorrectedProducts([])
     } catch (error: any) {
       console.error('Add corrected products error:', error)
       toast.error(error.response?.data?.error || 'Erro ao adicionar produtos corrigidos')
@@ -333,113 +488,177 @@ export default function ImportPage() {
     }).format(price)
   }
 
+  // Função para resetar todos os estados (emergência)
+  const handleResetAll = () => {
+    setFile(null)
+    setImportResult(null)
+    setIsPreview(false)
+    setConfirming(false)
+    setCorrectingErrors(false)
+    setCorrectedProducts([])
+    setEditingErrorProduct(null)
+    setProductCategoryMap({})
+    setImportProgress({ current: 0, total: 0, percentage: 0 })
+    if (typeof window !== 'undefined') {
+      const fileInput = document.getElementById('excel-file') as HTMLInputElement
+      if (fileInput) fileInput.value = ''
+    }
+    toast.success('Estado resetado')
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Importar Produtos do Excel</h1>
-        <p className="text-gray-600 mt-1">
-          Faça upload de um arquivo Excel com os produtos para importação em massa
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Importar Produtos do Excel</h1>
+          <p className="text-gray-600 mt-1">
+            Faça upload de um arquivo Excel com os produtos para importação em massa
+          </p>
+        </div>
+        {(confirming || editingErrorProduct) && (
+          <button
+            onClick={handleResetAll}
+            className="text-sm text-red-600 hover:text-red-800 font-medium px-3 py-1 border border-red-300 rounded hover:bg-red-50"
+            title="Resetar tudo (usar se a interface travar)"
+          >
+            🔄 Resetar
+          </button>
+        )}
       </div>
 
       <div className="card space-y-6">
-        {/* Instruções */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-bold text-blue-900 mb-2 flex items-center gap-2">
-            <AlertCircle size={20} />
-            Formato do Arquivo Excel
-          </h3>
-          <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
-            <li>Colunas obrigatórias: <strong>Descrição</strong> (será usada como nome do produto), <strong>Categoria</strong> e <strong>Valor Final</strong></li>
-            <li>Colunas opcionais: <strong>Marca</strong>, <strong>Subcategoria</strong>, <strong>Situação</strong></li>
-            <li>A primeira linha deve conter os cabeçalhos das colunas</li>
-            <li>Valores devem usar ponto (.) ou vírgula (,) como separador decimal</li>
-            <li>Situação: &quot;ativo&quot; ou &quot;disponível&quot; = produto ativo, outros = inativo</li>
-            <li><strong>Importante:</strong> A Descrição do Excel será usada como Nome do Produto. O campo Descrição na aplicação ficará vazio.</li>
-          </ul>
+        {/* Instruções - Compacto */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className="flex items-start gap-2">
+            <AlertCircle size={18} className="text-blue-600 mt-0.5 flex-shrink-0" />
+            <div className="text-xs text-blue-800">
+              <p className="font-semibold mb-1">Formato: <strong>Descrição</strong> (nome do produto), <strong>Categoria</strong>, <strong>Valor Final</strong> | Opcionais: Marca, Subcategoria, Situação</p>
+              <p className="text-blue-700">Primeira linha = cabeçalhos | Decimais: ponto ou vírgula | Situação: &quot;ativo&quot;/&quot;disponível&quot; = ativo</p>
+            </div>
+          </div>
         </div>
 
-        {/* Seleção de Condomínios */}
-        <div>
-          <label className="block text-sm font-bold text-gray-700 mb-3">
-            Selecione os Condomínios para Importar *
-          </label>
-          <div className="space-y-2">
-            {condominiums.map((cond) => (
-              <label key={cond.id} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selectedCondominiums.includes(cond.id)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedCondominiums([...selectedCondominiums, cond.id])
-                    } else {
-                      setSelectedCondominiums(selectedCondominiums.filter((id) => id !== cond.id))
+        {/* 3 Cards lado a lado: Condomínio | Arquivo | Analisar */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Card 1: Seleção de Condomínio */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <label className="block text-sm font-bold text-gray-700 mb-3">
+              Condomínio *
+            </label>
+            <div className="space-y-2">
+              {condominiums.map((cond) => (
+                <label key={cond.id} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="condominium"
+                    checked={selectedCondominiums.includes(cond.id)}
+                    onChange={() => {
+                      setSelectedCondominiums([cond.id])
+                    }}
+                    className="w-5 h-5 text-primary-600 focus:ring-primary-500 border-gray-300"
+                  />
+                  <span className="text-sm font-medium text-gray-700">{cond.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Card 2: Upload de Arquivo */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <label className="block text-sm font-bold text-gray-700 mb-3">
+              Arquivo Excel *
+            </label>
+            <div className="space-y-2">
+              <input
+                type="file"
+                id="excel-file"
+                accept=".xlsx,.xls"
+                onChange={handleFileChange}
+                className="hidden"
+                disabled={uploading || selectedCondominiums.length === 0}
+              />
+              <label
+                htmlFor="excel-file"
+                className={`inline-flex items-center gap-2 cursor-pointer px-4 py-2 rounded-lg border transition-colors ${
+                  selectedCondominiums.length === 0
+                    ? 'bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed'
+                    : file
+                    ? 'bg-green-50 border-green-300 text-green-700 hover:bg-green-100'
+                    : 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
+                }`}
+              >
+                <FileSpreadsheet size={18} />
+                <span className="text-sm font-medium">
+                  {file ? file.name : 'Selecionar Arquivo'}
+                </span>
+              </label>
+              {file && (
+                <button
+                  onClick={() => {
+                    setFile(null)
+                    setImportResult(null)
+                    if (typeof window !== 'undefined') {
+                      const fileInput = document.getElementById('excel-file') as HTMLInputElement
+                      if (fileInput) fileInput.value = ''
                     }
                   }}
-                  className="w-5 h-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                />
-                <span className="text-sm font-medium text-gray-700">{cond.name}</span>
-              </label>
-            ))}
+                  className="text-xs text-red-600 hover:text-red-800 font-medium mt-1"
+                >
+                  ✕ Remover
+                </button>
+              )}
+              {selectedCondominiums.length === 0 && (
+                <p className="text-xs text-gray-500 mt-1">Selecione um condomínio primeiro</p>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Upload de Arquivo */}
-        <div>
-          <label className="block text-sm font-bold text-gray-700 mb-2">
-            Arquivo Excel *
-          </label>
-          <div className="flex items-center gap-4">
-            <input
-              type="file"
-              id="excel-file"
-              accept=".xlsx,.xls"
-              onChange={handleFileChange}
-              className="hidden"
-              disabled={uploading}
-            />
-            <label
-              htmlFor="excel-file"
-              className="btn-secondary inline-flex items-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              <FileSpreadsheet size={20} />
-              {file ? file.name : 'Selecionar Arquivo Excel'}
+          {/* Card 3: Botão Analisar */}
+          <div className="bg-white border border-gray-200 rounded-lg p-4">
+            <label className="block text-sm font-bold text-gray-700 mb-3">
+              Ação
             </label>
-            {file && (
+            <div className="space-y-3">
               <button
-                onClick={() => {
-                  setFile(null)
-                  const fileInput = document.getElementById('excel-file') as HTMLInputElement
-                  if (fileInput) fileInput.value = ''
-                }}
-                className="text-red-600 hover:text-red-800 text-sm font-medium"
+                onClick={handlePreview}
+                disabled={!file || selectedCondominiums.length === 0 || uploading || confirming}
+                className={`w-full flex items-center justify-center gap-2 h-10 rounded-lg font-semibold transition-colors ${
+                  uploading
+                    ? 'bg-green-600 text-white cursor-wait'
+                    : !file || selectedCondominiums.length === 0 || confirming
+                    ? 'bg-gray-400 text-white cursor-not-allowed opacity-50'
+                    : 'bg-primary-600 text-white hover:bg-primary-700'
+                }`}
               >
-                Remover
+                {uploading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="text-sm font-semibold">Analisando...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet size={18} />
+                    <span className="text-sm">Analisar Arquivo</span>
+                  </>
+                )}
               </button>
-            )}
+              {/* Barra de progresso destacada abaixo do botão */}
+              {uploading && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-green-700">Progresso do Upload</span>
+                    <span className="font-bold text-green-600">{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-green-100 rounded-full h-3 overflow-hidden border border-green-200">
+                    <div
+                      className="bg-green-600 h-full rounded-full transition-all duration-300 ease-out shadow-sm"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-
-        {/* Botão de Preview */}
-        <div>
-          <button
-            onClick={handlePreview}
-            disabled={!file || selectedCondominiums.length === 0 || uploading || confirming}
-            className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {uploading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Analisando arquivo...
-              </>
-            ) : (
-              <>
-                <FileSpreadsheet size={20} />
-                Analisar Arquivo (Preview)
-              </>
-            )}
-          </button>
         </div>
 
         {/* Resultado da Importação */}
@@ -457,7 +676,8 @@ export default function ImportPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+              {/* Card 1: Prontos */}
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="flex items-center gap-2 text-green-700 mb-1">
                   <CheckCircle size={20} />
@@ -467,61 +687,135 @@ export default function ImportPage() {
                   {isPreview ? importResult.preview?.length || 0 : importResult.success}
                 </p>
                 <p className="text-sm text-green-600">
-                  {isPreview ? 'produtos prontos para importar' : 'produtos criados'}
+                  {isPreview ? 'produtos prontos para serem adicionados após importação' : 'produtos criados'}
                 </p>
               </div>
 
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-orange-700 mb-1">
-                  <AlertCircle size={20} />
-                  <span className="font-bold">Já Existem</span>
+              {/* Card 2: Já Existem */}
+              <div 
+                className={`bg-orange-50 border border-orange-200 rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
+                  showSkippedList ? 'shadow-md' : ''
+                }`}
+                onClick={() => setShowSkippedList(!showSkippedList)}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2 text-orange-700">
+                    <AlertCircle size={20} />
+                    <span className="font-bold">Já Existem</span>
+                  </div>
+                  {importResult.skippedList && importResult.skippedList.length > 0 && (
+                    showSkippedList ? <ChevronUp size={18} className="text-orange-600" /> : <ChevronDown size={18} className="text-orange-600" />
+                  )}
                 </div>
                 <p className="text-2xl font-black text-orange-600">{importResult.skipped || 0}</p>
-                <p className="text-sm text-orange-600">preços serão adicionados</p>
+                <p className="text-sm text-orange-600">Produtos existentes, preços serão atualizados</p>
+                {importResult.skippedList && importResult.skippedList.length > 0 && (
+                  <p className="text-xs text-orange-500 mt-1">Clique para ver detalhes</p>
+                )}
               </div>
 
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-red-700 mb-1">
-                  <XCircle size={20} />
-                  <span className="font-bold">Erros</span>
+              {/* Card 3: Erros */}
+              <div 
+                className={`bg-red-50 border border-red-200 rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
+                  showErrorsList ? 'shadow-md' : ''
+                }`}
+                onClick={() => setShowErrorsList(!showErrorsList)}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2 text-red-700">
+                    <XCircle size={20} />
+                    <span className="font-bold">Erros</span>
+                  </div>
+                  {importResult.errorsList && importResult.errorsList.length > 0 && (
+                    showErrorsList ? <ChevronUp size={18} className="text-red-600" /> : <ChevronDown size={18} className="text-red-600" />
+                  )}
                 </div>
                 <p className="text-2xl font-black text-red-600">{importResult.errors}</p>
                 <p className="text-sm text-red-600">
-                  {isPreview ? 'linhas com erro (não serão adicionadas)' : 'linhas com erro'}
+                  {isPreview ? 'produtos com informações faltando (não serão adicionadas)' : 'produtos com informações faltando'}
                 </p>
-              </div>
-            </div>
-
-            {/* Botão de Confirmação (apenas no preview) */}
-            {isPreview && (
-              <div className="mb-4 flex gap-3">
-                <button
-                  onClick={handleConfirmImport}
-                  disabled={confirming || (importResult.preview?.length || 0) === 0}
-                  className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed bg-green-600 hover:bg-green-700"
-                >
-                  {confirming ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Adicionando ao catálogo...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle size={20} />
-                      Confirmar e Adicionar ao Catálogo
-                    </>
-                  )}
-                </button>
-                {importResult.errorProducts && importResult.errorProducts.length > 0 && (
-                  <button
-                    onClick={() => setCorrectingErrors(!correctingErrors)}
-                    className="btn-secondary flex items-center gap-2"
-                  >
-                    <Edit2 size={20} />
-                    {correctingErrors ? 'Ocultar Correções' : 'Corrigir Erros'}
-                  </button>
+                {importResult.errorsList && importResult.errorsList.length > 0 && (
+                  <p className="text-xs text-red-500 mt-1">Clique para ver detalhes</p>
                 )}
               </div>
+
+              {/* Card 4: Botões de Ação (apenas no preview) */}
+              {isPreview && (
+                <div className="bg-white border border-gray-200 rounded-lg p-4 flex flex-col gap-2">
+                  <button
+                    onClick={handleConfirmImport}
+                    disabled={confirming || ((importResult.preview?.length || 0) === 0 && (importResult.skipped || 0) === 0)}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-colors text-sm ${
+                      confirming || ((importResult.preview?.length || 0) === 0 && (importResult.skipped || 0) === 0)
+                        ? 'bg-gray-400 text-white cursor-not-allowed'
+                        : 'bg-green-600 text-white hover:bg-green-700'
+                    }`}
+                  >
+                    {confirming ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span className="text-xs">Adicionando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle size={16} />
+                        <span className="text-xs">Confirmar e Adicionar</span>
+                      </>
+                    )}
+                  </button>
+                  {importResult.errorProducts && importResult.errorProducts.length > 0 && (
+                    <button
+                      onClick={() => setCorrectingErrors(!correctingErrors)}
+                      className="flex-1 px-4 py-3 rounded-lg font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 text-sm"
+                    >
+                      <Edit2 size={16} />
+                      <span className="text-xs">{correctingErrors ? 'Ocultar Correções' : 'Corrigir Erros'}</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Barra de Progresso (apenas no preview) */}
+            {isPreview && (
+              <>
+                {/* Barra de Progresso */}
+                {confirming && importProgress.total > 0 && (
+                  <div className="mt-4 bg-gray-100 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">
+                        Processando importação...
+                      </span>
+                      <span className="text-sm font-bold text-primary-600">
+                        {importProgress.current} / {importProgress.total} ({importProgress.percentage}%)
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                      <div
+                        className="bg-primary-600 h-full rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${importProgress.percentage}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      {importProgress.percentage < 10 && 'Enviando arquivo...'}
+                      {importProgress.percentage >= 10 && importProgress.percentage < 50 && 'Processando produtos...'}
+                      {importProgress.percentage >= 50 && importProgress.percentage < 90 && 'Criando produtos e preços...'}
+                      {importProgress.percentage >= 90 && importProgress.percentage < 100 && 'Finalizando...'}
+                      {importProgress.percentage >= 100 && 'Concluído!'}
+                    </p>
+                    <button
+                      onClick={() => {
+                        setConfirming(false)
+                        setImportProgress({ current: 0, total: 0, percentage: 0 })
+                        toast.info('Importação cancelada')
+                      }}
+                      className="mt-3 text-sm text-red-600 hover:text-red-800 font-medium"
+                    >
+                      Cancelar Importação
+                    </button>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Produtos Corrigidos */}
@@ -551,7 +845,26 @@ export default function ImportPage() {
               </div>
             )}
 
-            {importResult.skippedList && importResult.skippedList.length > 0 && (
+            {/* Produtos Criados */}
+            {!isPreview && importResult.createdList && importResult.createdList.length > 0 && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                <p className="text-sm font-bold text-green-900 mb-2">
+                  ✅ Produtos criados com sucesso:
+                </p>
+                <ul className="text-xs text-green-800 space-y-1 max-h-40 overflow-y-auto">
+                  {importResult.createdList.slice(0, 20).map((item: string, idx: number) => (
+                    <li key={idx} className="list-disc list-inside">{item}</li>
+                  ))}
+                  {importResult.createdList.length > 20 && (
+                    <li className="text-green-600 font-medium">
+                      ... e mais {importResult.createdList.length - 20} produtos criados
+                    </li>
+                  )}
+                </ul>
+              </div>
+            )}
+
+            {importResult.skippedList && importResult.skippedList.length > 0 && showSkippedList && (
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
                 <p className="text-sm font-bold text-orange-900 mb-2">
                   ⚠️ Produtos que já existem (preços serão adicionados para condomínios selecionados):
@@ -645,7 +958,7 @@ export default function ImportPage() {
               </div>
             )}
 
-            {importResult.errorsList && importResult.errorsList.length > 0 && !correctingErrors && (
+            {importResult.errorsList && importResult.errorsList.length > 0 && !correctingErrors && showErrorsList && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
                 <p className="text-sm font-bold text-red-900 mb-2">
                   ❌ Erros Encontrados (estas linhas NÃO serão adicionadas):
@@ -702,8 +1015,19 @@ export default function ImportPage() {
 
         {/* Modal de Correção de Produto */}
         {editingErrorProduct && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => {
+              // Fechar modal ao clicar fora dele
+              if (e.target === e.currentTarget) {
+                setEditingErrorProduct(null)
+              }
+            }}
+          >
+            <div 
+              className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-bold">Corrigir Produto</h2>

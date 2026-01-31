@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
       errors: 0,
       errorsList: [] as string[],
       skippedList: [] as string[], // Lista de produtos que já existem
+      createdList: [] as string[], // Lista de produtos criados
       createdCategories: [] as string[],
       preview: [] as any[], // Lista de produtos que serão criados (para preview)
       errorProducts: [] as any[], // Produtos com erro que podem ser corrigidos
@@ -312,6 +313,7 @@ export async function POST(req: NextRequest) {
                   },
                 })
                 results.success++
+                results.createdList.push(productName) // Adicionar à lista de produtos criados
                 
                 // Adicionar ao mapa e set para evitar duplicatas na mesma importação
                 productNameMap.set(normalizedProductName, product)
