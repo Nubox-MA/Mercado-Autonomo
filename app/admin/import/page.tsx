@@ -807,7 +807,7 @@ export default function ImportPage() {
                       onClick={() => {
                         setConfirming(false)
                         setImportProgress({ current: 0, total: 0, percentage: 0 })
-                        toast.info('Importação cancelada')
+                        toast('Importação cancelada', { icon: 'ℹ️' })
                       }}
                       className="mt-3 text-sm text-red-600 hover:text-red-800 font-medium"
                     >
