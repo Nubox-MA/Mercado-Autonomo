@@ -191,7 +191,7 @@ export default function ImportPage() {
       return
     }
 
-    let progressInterval: number | null = null
+    let progressInterval: ReturnType<typeof setInterval> | null = null
     
     try {
       setConfirming(true)
