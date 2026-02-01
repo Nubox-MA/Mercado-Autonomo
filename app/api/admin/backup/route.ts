@@ -11,18 +11,20 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Buscar todos os dados do banco
+    // Buscar apenas dados essenciais do sistema (não incluir usuários clientes, pedidos ou favoritos)
     const [
-      users,
+      admins,
       categories,
       products,
       neighborhoods,
       productPrices,
-      orders,
-      favorites,
       settings,
     ] = await Promise.all([
+      // Apenas administradores (dados de acesso)
       prisma.user.findMany({
+        where: {
+          role: 'ADMIN',
+        },
         select: {
           id: true,
           name: true,
@@ -41,8 +43,6 @@ export async function GET(req: NextRequest) {
       prisma.product.findMany(),
       prisma.neighborhood.findMany(),
       prisma.productPrice.findMany(),
-      prisma.order.findMany(),
-      prisma.favorite.findMany(),
       prisma.setting.findMany(),
     ])
 
@@ -50,21 +50,18 @@ export async function GET(req: NextRequest) {
       version: '1.0',
       createdAt: new Date().toISOString(),
       data: {
-        users,
+        admins,
         categories,
         products,
         neighborhoods,
         productPrices,
-        orders,
-        favorites,
         settings,
       },
       metadata: {
-        usersCount: users.length,
+        adminsCount: admins.length,
         categoriesCount: categories.length,
         productsCount: products.length,
         neighborhoodsCount: neighborhoods.length,
-        ordersCount: orders.length,
       },
     }
 
@@ -107,24 +104,27 @@ export async function POST(req: NextRequest) {
       const currentUserId = auth.userId
 
       // Deletar em ordem para respeitar foreign keys
-      await prisma.favorite.deleteMany()
       await prisma.productPrice.deleteMany()
-      await prisma.order.deleteMany()
       await prisma.productView.deleteMany()
       await prisma.product.deleteMany()
       await prisma.category.deleteMany()
       await prisma.neighborhood.deleteMany()
       await prisma.setting.deleteMany()
       
-      // Deletar usuários exceto o admin atual
+      // Deletar apenas admins exceto o admin atual (não deletar usuários clientes)
       if (currentUserId) {
         await prisma.user.deleteMany({
           where: {
+            role: 'ADMIN',
             id: { not: currentUserId },
           },
         })
       } else {
-        await prisma.user.deleteMany()
+        await prisma.user.deleteMany({
+          where: {
+            role: 'ADMIN',
+          },
+        })
       }
     }
 
@@ -146,16 +146,17 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    if (data.users && data.users.length > 0) {
+    // Restaurar apenas admins (dados de acesso)
+    if (data.admins && data.admins.length > 0) {
       // Não restaurar o usuário atual se estiver no backup
       const currentUserId = auth.userId
-      const usersToRestore = currentUserId
-        ? data.users.filter((u: any) => u.id !== currentUserId)
-        : data.users
+      const adminsToRestore = currentUserId
+        ? data.admins.filter((u: any) => u.id !== currentUserId)
+        : data.admins
 
-      if (usersToRestore.length > 0) {
+      if (adminsToRestore.length > 0) {
         await prisma.user.createMany({
-          data: usersToRestore,
+          data: adminsToRestore,
           skipDuplicates: true,
         })
       }
@@ -175,20 +176,6 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    if (data.orders && data.orders.length > 0) {
-      await prisma.order.createMany({
-        data: data.orders,
-        skipDuplicates: true,
-      })
-    }
-
-    if (data.favorites && data.favorites.length > 0) {
-      await prisma.favorite.createMany({
-        data: data.favorites,
-        skipDuplicates: true,
-      })
-    }
-
     if (data.settings && data.settings.length > 0) {
       await prisma.setting.createMany({
         data: data.settings,
@@ -200,11 +187,10 @@ export async function POST(req: NextRequest) {
       success: true,
       message: 'Backup restaurado com sucesso!',
       restored: {
-        users: data.users?.length || 0,
+        admins: data.admins?.length || 0,
         categories: data.categories?.length || 0,
         products: data.products?.length || 0,
         neighborhoods: data.neighborhoods?.length || 0,
-        orders: data.orders?.length || 0,
       },
     })
   } catch (error: any) {

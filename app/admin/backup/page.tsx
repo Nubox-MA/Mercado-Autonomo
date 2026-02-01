@@ -128,12 +128,10 @@ export default function BackupPage() {
                 <strong>O backup inclui:</strong>
               </p>
               <ul className="text-sm text-blue-700 mt-2 space-y-1 list-disc list-inside">
-                <li>Usuários e administradores</li>
+                <li>Dados de acesso dos administradores</li>
                 <li>Categorias</li>
                 <li>Produtos e preços</li>
                 <li>Condomínios</li>
-                <li>Pedidos</li>
-                <li>Favoritos</li>
                 <li>Configurações</li>
               </ul>
             </div>
