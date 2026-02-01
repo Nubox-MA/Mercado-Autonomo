@@ -159,18 +159,18 @@ export default function ProductCard({ product }: ProductCardProps) {
 
           {/* Quantity Selector and Add Button - Só mostrar se disponível */}
           {isAvailable ? (
-            <div className="flex items-center gap-2">
-              <div className="flex items-center border rounded-lg bg-gray-50 h-10">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2">
+              <div className="flex items-center justify-center border rounded-lg bg-gray-50 h-10 w-full md:w-auto">
                 <button
                   onClick={(e) => {
                     e.stopPropagation() // Não disparar o clique do card
                     setQuantity(Math.max(1, quantity - 1))
                   }}
-                  className="px-2 hover:text-primary-600 transition-colors"
+                  className="px-3 hover:text-primary-600 transition-colors"
                 >
                   <Minus size={16} />
                 </button>
-                <span className="w-8 text-center font-bold text-sm">
+                <span className="w-12 text-center font-bold text-sm">
                   {quantity}
                 </span>
                 <button
@@ -178,7 +178,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                     e.stopPropagation() // Não disparar o clique do card
                     handleIncrement()
                   }}
-                  className="px-2 hover:text-primary-600 transition-colors"
+                  className="px-3 hover:text-primary-600 transition-colors"
                 >
                   <Plus size={16} />
                 </button>
@@ -189,7 +189,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                   e.stopPropagation() // Não disparar o clique do card
                   handleAddToCart()
                 }}
-                className="flex-1 flex items-center justify-center gap-2 h-10 bg-primary-600 text-white rounded-lg font-bold hover:bg-primary-700 active:scale-95 transition-all shadow-md shadow-primary-200 text-sm"
+                className="w-full md:flex-1 flex items-center justify-center gap-2 h-10 bg-primary-600 text-white rounded-lg font-bold hover:bg-primary-700 active:scale-95 transition-all shadow-md shadow-primary-200 text-sm"
               >
                 <ShoppingCart size={18} />
                 Adicionar
