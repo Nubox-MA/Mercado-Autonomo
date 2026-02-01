@@ -150,3 +150,15 @@ model ProductPrice {
   @@index([neighborhoodId])
   @@map("product_prices")
 }
+
+// Biblioteca de backups
+model Backup {
+  id          String   @id @default(uuid())
+  data        String   // JSON stringified backup data
+  notes       String?  // Observações do admin
+  createdBy   String?  // Nome do admin que criou
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("backups")
+}
