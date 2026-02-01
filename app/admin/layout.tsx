@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useRouter, usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { LayoutDashboard, Package, FolderTree, LogOut, Home, User, Menu, X, MapPin, FileSpreadsheet } from 'lucide-react'
+import { LayoutDashboard, Package, FolderTree, LogOut, Home, User, Menu, X, MapPin, FileSpreadsheet, Database } from 'lucide-react'
 
 export default function AdminLayout({
   children,
@@ -47,6 +47,7 @@ export default function AdminLayout({
     { href: '/admin/import', icon: FileSpreadsheet, label: 'Importar Excel' },
     { href: '/admin/categories', icon: FolderTree, label: 'Categorias' },
     { href: '/admin/neighborhoods', icon: MapPin, label: 'Condomínios' },
+    { href: '/admin/backup', icon: Database, label: 'Backup' },
     { href: '/admin/profile', icon: User, label: 'Meu Perfil' },
   ]
 

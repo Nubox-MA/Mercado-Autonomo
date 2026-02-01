@@ -7,11 +7,12 @@ interface ConfirmModalProps {
   onClose: () => void
   onConfirm: () => void
   title: string
-  message: string
+  message: string | React.ReactNode
   confirmText?: string
   cancelText?: string
   type?: 'danger' | 'success' | 'warning' | 'info'
   isLoading?: boolean
+  disabled?: boolean
 }
 
 export default function ConfirmModal({
@@ -23,7 +24,8 @@ export default function ConfirmModal({
   confirmText = 'Confirmar',
   cancelText = 'Cancelar',
   type = 'warning',
-  isLoading = false
+  isLoading = false,
+  disabled = false
 }: ConfirmModalProps) {
   if (!isOpen) return null
 
@@ -64,13 +66,17 @@ export default function ConfirmModal({
             {icons[type]}
           </div>
           <h2 className="text-2xl font-black text-gray-900">{title}</h2>
-          <p className="text-gray-500 mt-2 leading-relaxed whitespace-pre-line">{message}</p>
+          {typeof message === 'string' ? (
+            <p className="text-gray-500 mt-2 leading-relaxed whitespace-pre-line">{message}</p>
+          ) : (
+            <div className="text-gray-500 mt-2 leading-relaxed">{message}</div>
+          )}
         </div>
 
         <div className="grid gap-3">
           <button
             onClick={onConfirm}
-            disabled={isLoading}
+            disabled={isLoading || disabled}
             className={`w-full ${buttonColors[type]} text-white py-4 rounded-2xl font-black text-lg flex items-center justify-center gap-3 transition-all shadow-lg active:scale-95 disabled:opacity-50`}
           >
             {isLoading ? (
