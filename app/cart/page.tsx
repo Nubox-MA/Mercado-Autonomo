@@ -7,7 +7,7 @@ import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import Image from 'next/image'
 import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import ConfirmModal from '@/components/ConfirmModal'
 
@@ -28,8 +28,14 @@ export default function CartPage() {
     return item.isPromotion && item.promoPrice ? item.promoPrice : item.price
   }
 
+  // Redirecionar apenas no cliente
+  useEffect(() => {
+    if (!selectedCondominium) {
+      router.push('/select-condominium')
+    }
+  }, [selectedCondominium, router])
+
   if (!selectedCondominium) {
-    router.push('/select-condominium')
     return null
   }
 
