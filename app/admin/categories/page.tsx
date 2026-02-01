@@ -177,6 +177,17 @@ export default function CategoriesPage() {
     )
   }
 
+  // Função para selecionar/desselecionar todos os produtos (usada na seção de produtos sem categoria)
+  const toggleSelectAll = () => {
+    if (selectedProductIds.length === productsWithoutCategory.length && productsWithoutCategory.length > 0) {
+      // Desselecionar todos
+      setSelectedProductIds([])
+    } else {
+      // Selecionar todos os produtos sem categoria
+      setSelectedProductIds(productsWithoutCategory.map(p => p.id))
+    }
+  }
+
   // Função para adicionar produtos selecionados à categoria
   const handleAddProductsToCategory = async (categoryId?: string) => {
     const targetCategoryId = categoryId || editingCategory?.id
