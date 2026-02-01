@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import axios from 'axios'
-import { Plus, Edit, Trash2, Upload, Search, X } from 'lucide-react'
+import { Plus, Edit, Trash2, Upload, Search, X, ArrowUp, ArrowDown } from 'lucide-react'
 import Image from 'next/image'
 import toast from 'react-hot-toast'
 import ConfirmModal from '@/components/ConfirmModal'
@@ -61,7 +61,8 @@ export default function ProductsPage() {
   const [newCategoryName, setNewCategoryName] = useState('')
   const [isCreatingCategoryLoading, setIsCreatingCategoryLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [sortByCategory, setSortByCategory] = useState(false)
+  const [sortField, setSortField] = useState<'name' | 'category' | 'status' | null>(null)
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [showDeleteAllModal, setShowDeleteAllModal] = useState(false)
   const [showDeleteAllConfirmModal, setShowDeleteAllConfirmModal] = useState(false)
   const [isDeletingAll, setIsDeletingAll] = useState(false)
@@ -479,6 +480,18 @@ export default function ProductsPage() {
     }).format(price)
   }
 
+  // Função para lidar com ordenação
+  const handleSort = (field: 'name' | 'category' | 'status') => {
+    if (sortField === field) {
+      // Se já está ordenando por este campo, alternar ordem
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      // Se é um novo campo, começar com ordem ascendente
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
+
   // Filtrar e ordenar produtos
   const filteredAndSortedProducts = products
     .filter((product) => {
@@ -486,21 +499,27 @@ export default function ProductsPage() {
       const query = searchQuery.toLowerCase()
       return (
         product.name.toLowerCase().includes(query) ||
-        product.description?.toLowerCase().includes(query) ||
         product.category?.name.toLowerCase().includes(query)
       )
     })
     .sort((a, b) => {
-      if (sortByCategory) {
-        // Ordenar por categoria primeiro, depois por nome
+      if (sortField === 'name') {
+        const result = a.name.localeCompare(b.name)
+        return sortOrder === 'asc' ? result : -result
+      } else if (sortField === 'category') {
         const categoryA = a.category?.name || 'Sem categoria'
         const categoryB = b.category?.name || 'Sem categoria'
-        if (categoryA !== categoryB) {
-          return categoryA.localeCompare(categoryB)
-        }
+        const result = categoryA.localeCompare(categoryB)
+        return sortOrder === 'asc' ? result : -result
+      } else if (sortField === 'status') {
+        // Ordenar por status: disponível primeiro (true) ou indisponível (false)
+        const statusA = a.active ? 1 : 0
+        const statusB = b.active ? 1 : 0
+        const result = statusA - statusB
+        return sortOrder === 'asc' ? result : -result
       }
-      // Ordenar por nome dentro da mesma categoria
-      return a.name.localeCompare(b.name)
+      // Sem ordenação específica, manter ordem original
+      return 0
     })
 
   return (
@@ -535,7 +554,7 @@ export default function ProductsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
             <input
               type="text"
-              placeholder="Pesquisar produto por nome, descrição ou categoria..."
+              placeholder="Pesquisar produto por nome ou categoria"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="input-field pl-10 pr-10"
@@ -548,17 +567,6 @@ export default function ProductsPage() {
                 <X size={18} />
               </button>
             )}
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={sortByCategory}
-                onChange={(e) => setSortByCategory(e.target.checked)}
-                className="w-5 h-5 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-              />
-              <span className="text-sm font-medium text-gray-700">Ordenar por Categoria</span>
-            </label>
           </div>
         </div>
 
@@ -580,9 +588,60 @@ export default function ProductsPage() {
             <thead>
               <tr className="border-b">
                 <th className="text-left py-3 px-4">Imagem</th>
-                <th className="text-left py-3 px-4">Nome</th>
-                <th className="text-left py-3 px-4">Categoria</th>
-                <th className="text-left py-3 px-4">Status</th>
+                <th className="text-left py-3 px-4">
+                  <button
+                    onClick={() => handleSort('name')}
+                    className="flex items-center gap-2 hover:text-primary-600 transition-colors"
+                  >
+                    Nome
+                    <div className="flex items-center gap-0.5">
+                      <ArrowUp 
+                        size={12} 
+                        className={sortField === 'name' && sortOrder === 'asc' ? 'text-primary-600' : 'text-gray-300'} 
+                      />
+                      <ArrowDown 
+                        size={12} 
+                        className={sortField === 'name' && sortOrder === 'desc' ? 'text-primary-600' : 'text-gray-300'} 
+                      />
+                    </div>
+                  </button>
+                </th>
+                <th className="text-left py-3 px-4">
+                  <button
+                    onClick={() => handleSort('category')}
+                    className="flex items-center gap-2 hover:text-primary-600 transition-colors"
+                  >
+                    Categoria
+                    <div className="flex items-center gap-0.5">
+                      <ArrowUp 
+                        size={12} 
+                        className={sortField === 'category' && sortOrder === 'asc' ? 'text-primary-600' : 'text-gray-300'} 
+                      />
+                      <ArrowDown 
+                        size={12} 
+                        className={sortField === 'category' && sortOrder === 'desc' ? 'text-primary-600' : 'text-gray-300'} 
+                      />
+                    </div>
+                  </button>
+                </th>
+                <th className="text-left py-3 px-4">
+                  <button
+                    onClick={() => handleSort('status')}
+                    className="flex items-center gap-2 hover:text-primary-600 transition-colors"
+                  >
+                    Status
+                    <div className="flex items-center gap-0.5">
+                      <ArrowUp 
+                        size={12} 
+                        className={sortField === 'status' && sortOrder === 'asc' ? 'text-primary-600' : 'text-gray-300'} 
+                      />
+                      <ArrowDown 
+                        size={12} 
+                        className={sortField === 'status' && sortOrder === 'desc' ? 'text-primary-600' : 'text-gray-300'} 
+                      />
+                    </div>
+                  </button>
+                </th>
                 <th className="text-left py-3 px-4">Ações</th>
               </tr>
             </thead>

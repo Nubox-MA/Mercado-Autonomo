@@ -21,6 +21,7 @@ interface FavoritesContextType {
   favorites: Product[]
   toggleFavorite: (product: Product) => void
   isFavorited: (productId: string) => boolean
+  clearFavorites: () => void
 }
 
 const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined)
@@ -58,28 +59,42 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
 
   const toggleFavorite = (product: Product) => {
     if (!selectedCondominium) {
-      setTimeout(() => toast.error('Selecione um condomínio primeiro'), 0)
+      toast.error('Selecione um condomínio primeiro')
       return
     }
+
+    let showToast = false
+    let toastMessage = ''
 
     setFavorites((current) => {
       const exists = current.some((p) => p.id === product.id)
       if (exists) {
-        setTimeout(() => toast.success('Removido dos favoritos'), 0)
+        showToast = true
+        toastMessage = 'Removido dos favoritos'
         return current.filter((p) => p.id !== product.id)
       } else {
-        setTimeout(() => toast.success('Adicionado aos favoritos'), 0)
+        showToast = true
+        toastMessage = 'Adicionado aos favoritos'
         return [...current, product]
       }
     })
+
+    if (showToast) {
+      toast.success(toastMessage)
+    }
   }
 
   const isFavorited = (productId: string) => {
     return favorites.some((p) => p.id === productId)
   }
 
+  const clearFavorites = () => {
+    setFavorites([])
+    toast.success('Lista de favoritos limpa')
+  }
+
   return (
-    <FavoritesContext.Provider value={{ favorites, toggleFavorite, isFavorited }}>
+    <FavoritesContext.Provider value={{ favorites, toggleFavorite, isFavorited, clearFavorites }}>
       {children}
     </FavoritesContext.Provider>
   )

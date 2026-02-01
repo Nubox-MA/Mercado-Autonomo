@@ -80,8 +80,6 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
   try {
     const body = await req.json()
-    console.log('Update product request body:', JSON.stringify(body, null, 2))
-    
     const { condominiumPrices, ...productData } = body
     
     // Limpar campos vazios e converter valores
@@ -134,8 +132,6 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     if (productData.active !== undefined) {
       cleanedData.active = Boolean(productData.active)
     }
-
-    console.log('Cleaned data:', JSON.stringify(cleanedData, null, 2))
     
     const data = updateProductSchema.parse(cleanedData)
 
@@ -201,7 +197,6 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
               stock: cp.stock || currentProduct?.stock || 0,
             })),
           })
-          console.log(`Preços atualizados: ${validPrices.length} preços criados`)
         } catch (priceError: any) {
           console.error('Error creating product prices:', priceError)
           return NextResponse.json(
@@ -214,7 +209,6 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         await prisma.productPrice.deleteMany({
           where: { productId: params.id },
         })
-        console.log('Todos os preços foram removidos (array vazio enviado)')
       }
       // Se condominiumPrices for null/undefined, não fazer nada (preservar preços existentes)
     }

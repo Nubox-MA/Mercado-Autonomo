@@ -671,7 +671,7 @@ export default function ImportPage() {
             {isPreview && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
                 <p className="text-sm text-yellow-800 font-medium">
-                  ⚠️ <strong>Preview:</strong> Nenhum produto foi adicionado ainda. Revise os dados abaixo e clique em &quot;Confirmar e Adicionar ao Catálogo&quot; para finalizar a importação.
+                  ⚠️ <strong>Preview:</strong> Nenhum produto foi adicionado ainda. Revise os dados abaixo, para correções clique em &quot;Corrigir erros&quot; e após &quot;Confirmar e Adicionar&quot; para finalizar a importação dos produtos. Após finalizar, serão informados os produtos que foram adicionados ao catálogo.
                 </p>
               </div>
             )}
@@ -687,7 +687,7 @@ export default function ImportPage() {
                   {isPreview ? importResult.preview?.length || 0 : importResult.success}
                 </p>
                 <p className="text-sm text-green-600">
-                  {isPreview ? 'produtos prontos para serem adicionados após importação' : 'produtos criados'}
+                  {isPreview ? 'novos produtos prontos para serem adicionados após importação' : 'novos produtos criados'}
                 </p>
               </div>
 
@@ -708,7 +708,7 @@ export default function ImportPage() {
                   )}
                 </div>
                 <p className="text-2xl font-black text-orange-600">{importResult.skipped || 0}</p>
-                <p className="text-sm text-orange-600">Produtos existentes, preços serão atualizados</p>
+                <p className="text-sm text-orange-600">Produtos existentes, preços diferentes serão atualizados</p>
                 {importResult.skippedList && importResult.skippedList.length > 0 && (
                   <p className="text-xs text-orange-500 mt-1">Clique para ver detalhes</p>
                 )}
@@ -732,7 +732,7 @@ export default function ImportPage() {
                 </div>
                 <p className="text-2xl font-black text-red-600">{importResult.errors}</p>
                 <p className="text-sm text-red-600">
-                  {isPreview ? 'produtos com informações faltando (não serão adicionadas)' : 'produtos com informações faltando'}
+                  {isPreview ? 'produtos com informações pendentes (não serão adicionadas ao catalogo)' : 'produtos com informações pendentes'}
                 </p>
                 {importResult.errorsList && importResult.errorsList.length > 0 && (
                   <p className="text-xs text-red-500 mt-1">Clique para ver detalhes</p>

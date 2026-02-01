@@ -4,30 +4,50 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/contexts/FavoritesContext'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
-import ProductCard from '@/components/ProductCard'
+import FavoriteProductCard from '@/components/FavoriteProductCard'
 import Footer from '@/components/Footer'
-import { Heart } from 'lucide-react'
+import ConfirmModal from '@/components/ConfirmModal'
+import { Heart, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 
 export default function FavoritesPage() {
   const { user, isLoading } = useAuth()
-  const { favorites } = useFavorites()
+  const { favorites, clearFavorites } = useFavorites()
   const router = useRouter()
+  const [showClearModal, setShowClearModal] = useState(false)
 
   if (!user) return null
+
+  const handleClearFavorites = () => {
+    clearFavorites()
+    setShowClearModal(false)
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
       
       <main className="flex-1 container mx-auto px-4 py-8">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="p-3 bg-red-100 text-red-600 rounded-2xl">
-            <Heart size={32} fill="currentColor" />
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-red-100 text-red-600 rounded-2xl">
+              <Heart size={32} fill="currentColor" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black text-gray-900">Meus Favoritos</h1>
+              <p className="text-gray-500">Produtos que você mais gosta</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-black text-gray-900">Meus Favoritos</h1>
-            <p className="text-gray-500">Produtos que você mais gosta</p>
-          </div>
+          {favorites.length > 0 && (
+            <button
+              onClick={() => setShowClearModal(true)}
+              className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition flex items-center gap-2"
+              title="Limpar lista de favoritos"
+            >
+              <Trash2 size={20} />
+              <span className="hidden sm:inline font-medium">Limpar Lista</span>
+            </button>
+          )}
         </div>
 
         {isLoading ? (
@@ -47,13 +67,24 @@ export default function FavoritesPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
             {favorites.map((product: any) => (
-              <ProductCard key={product.id} product={product} />
+              <FavoriteProductCard key={product.id} product={product} />
             ))}
           </div>
         )}
       </main>
+
+      <ConfirmModal
+        isOpen={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        onConfirm={handleClearFavorites}
+        title="Limpar Lista de Favoritos?"
+        message="Tem certeza que deseja remover todos os produtos dos favoritos? Esta ação não pode ser desfeita."
+        confirmText="Sim, Limpar"
+        cancelText="Cancelar"
+        type="danger"
+      />
 
       <Footer />
     </div>

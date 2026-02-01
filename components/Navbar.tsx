@@ -49,7 +49,16 @@ export default function Navbar() {
             </Link>
 
             <div className="flex items-center gap-0.5 sm:gap-2 ml-auto">
-              {/* Carrinho sempre visível - PRIMEIRO */}
+              {/* Favoritos - PRIMEIRO */}
+              <Link
+                href="/favorites"
+                className="relative hover:bg-primary-700 p-2 rounded-lg transition"
+                title="Meus Favoritos"
+              >
+                <Heart size={22} />
+              </Link>
+
+              {/* Carrinho sempre visível - SEGUNDO */}
                   <Link
                     href="/cart"
                     className="relative hover:bg-primary-700 p-2 rounded-lg transition"

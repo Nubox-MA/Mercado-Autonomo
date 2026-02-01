@@ -68,8 +68,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = (product: Product, quantityToAdd: number = 1) => {
     if (!selectedCondominium) {
-      // Usar setTimeout para evitar chamar toast durante render
-      setTimeout(() => toast.error('Selecione um condomínio primeiro'), 0)
+      toast.error('Selecione um condomínio primeiro')
       return
     }
 
@@ -80,7 +79,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const existingItem = current.find((item) => item.id === product.id)
 
       if (existingItem) {
-        // Removido limite de estoque - permite adicionar quantas vezes quiser
         showToast = true
         toastMessage = 'Quantidade atualizada'
         return current.map((item) =>
@@ -90,21 +88,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
         )
       }
 
-      // Produto novo - mostrar toast apenas uma vez
       showToast = true
       toastMessage = 'Produto adicionado à lista'
       return [...current, { ...product, quantity: quantityToAdd }]
     })
 
-    // Mostrar toast apenas uma vez, fora do setState
     if (showToast) {
-      setTimeout(() => toast.success(toastMessage), 0)
+      toast.success(toastMessage)
     }
   }
 
   const removeItem = (productId: string) => {
     setItems((current) => current.filter((item) => item.id !== productId))
-    setTimeout(() => toast.success('Produto removido da lista'), 0)
+    toast.success('Produto removido da lista')
   }
 
   const updateQuantity = (productId: string, quantity: number) => {
@@ -126,7 +122,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clearCart = () => {
     setItems([])
-    setTimeout(() => toast.success('Lista limpa'), 0)
+    toast.success('Lista limpa')
   }
 
   const total = items.reduce((sum, item) => {

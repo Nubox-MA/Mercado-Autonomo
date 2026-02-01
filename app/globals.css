@@ -40,3 +40,33 @@ body {
   }
 }
 
+/* Estilos para react-hot-toast com botão X */
+.react-hot-toast {
+  position: relative;
+}
+
+.react-hot-toast > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Garantir que o botão X apareça após a mensagem */
+.react-hot-toast button[aria-label="Close"],
+.react-hot-toast button[data-testid="close-button"] {
+  margin-left: auto;
+  padding: 4px 8px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.react-hot-toast button[aria-label="Close"]:hover,
+.react-hot-toast button[data-testid="close-button"]:hover {
+  opacity: 1;
+}

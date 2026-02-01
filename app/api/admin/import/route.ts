@@ -4,6 +4,21 @@ import { prisma } from '@/lib/prisma'
 // @ts-ignore - xlsx não tem tipos perfeitos
 import * as XLSX from 'xlsx'
 
+// Helper para buscar ou criar categoria "Sem Categoria"
+async function getOrCreateUncategorizedCategory() {
+  let uncategorizedCategory = await prisma.category.findUnique({
+    where: { name: 'Sem Categoria' },
+  })
+
+  if (!uncategorizedCategory) {
+    uncategorizedCategory = await prisma.category.create({
+      data: { name: 'Sem Categoria' },
+    })
+  }
+
+  return uncategorizedCategory
+}
+
 // POST - Preview da importação (não cria produtos ainda)
 export async function POST(req: NextRequest) {
   const auth = await authMiddleware(req, true)
@@ -90,9 +105,13 @@ export async function POST(req: NextRequest) {
       productNameMap.set(p.name.toLowerCase().trim(), p)
     })
 
+    // Sets para rastrear produtos únicos (evitar contar duplicatas)
+    const uniqueSkippedProducts = new Set<string>() // Produtos únicos que já existem
+    const uniqueNewProducts = new Set<string>() // Produtos únicos novos
+    
     const results = {
       success: 0,
-      skipped: 0, // Produtos que já existem (preços serão adicionados)
+      skipped: 0, // Produtos únicos que já existem (preços serão adicionados)
       errors: 0,
       errorsList: [] as string[],
       skippedList: [] as string[], // Lista de produtos que já existem
@@ -207,19 +226,28 @@ export async function POST(req: NextRequest) {
         })
 
         if (!category) {
-          // Marcar que categoria será criada
-          if (!results.createdCategories.includes(categoria)) {
-            results.createdCategories.push(categoria)
-          }
-          
-          if (confirm) {
-            // Criar categoria apenas na confirmação
-            category = await prisma.category.create({
-              data: { name: categoria },
-            })
+          // Se não tiver categoria definida, usar "Sem Categoria"
+          if (!categoria || categoria.trim() === '') {
+            if (confirm) {
+              category = await getOrCreateUncategorizedCategory()
+            } else {
+              category = { id: 'temp', name: 'Sem Categoria' } as any
+            }
           } else {
-            // Para preview, usar categoria temporária
-            category = { id: 'temp', name: categoria } as any
+            // Marcar que categoria será criada
+            if (!results.createdCategories.includes(categoria)) {
+              results.createdCategories.push(categoria)
+            }
+            
+            if (confirm) {
+              // Criar categoria apenas na confirmação
+              category = await prisma.category.create({
+                data: { name: categoria },
+              })
+            } else {
+              // Para preview, usar categoria temporária
+              category = { id: 'temp', name: categoria } as any
+            }
           }
         }
 
@@ -232,19 +260,30 @@ export async function POST(req: NextRequest) {
         
         if (productExists) {
           // Produto já existe - será adicionado à lista de "já existem"
-          results.skipped++
-          results.skippedList.push(`Linha ${i + 2}: "${productName}" já existe - preços serão adicionados`)
+          // Contar apenas produtos únicos (não contar duplicatas do Excel)
+          if (!uniqueSkippedProducts.has(normalizedProductName)) {
+            uniqueSkippedProducts.add(normalizedProductName)
+            results.skipped++
+            results.skippedList.push(`"${productName}" já existe - preços serão adicionados`)
+          } else {
+            // Produto já foi contado, apenas adicionar à lista de detalhes
+            results.skippedList.push(`Linha ${i + 2}: "${productName}" (já contado anteriormente)`)
+          }
         } else {
           // Produto novo - adicionar à lista de preview
-          const previewItem = {
-            name: productName,
-            description: null, // Descrição sempre null na aplicação
-            price: valor,
-            category: categoria,
-            active,
-            condominiums: condominiums.map((c) => c.name),
+          // Contar apenas produtos únicos (não contar duplicatas do Excel)
+          if (!uniqueNewProducts.has(normalizedProductName)) {
+            uniqueNewProducts.add(normalizedProductName)
+            const previewItem = {
+              name: productName,
+              description: null, // Descrição sempre null na aplicação
+              price: valor,
+              category: categoria,
+              active,
+              condominiums: condominiums.map((c) => c.name),
+            }
+            results.preview.push(previewItem)
           }
-          results.preview.push(previewItem)
         }
 
         // Se for confirmação, criar ou atualizar produto
@@ -252,11 +291,16 @@ export async function POST(req: NextRequest) {
           try {
             // Garantir que categoria existe (criar se necessário)
             if (!category || category.id === 'temp') {
-              category = await prisma.category.upsert({
-                where: { name: categoria },
-                update: {},
-                create: { name: categoria },
-              })
+              if (!categoria || categoria.trim() === '') {
+                // Se não tiver categoria, usar "Sem Categoria"
+                category = await getOrCreateUncategorizedCategory()
+              } else {
+                category = await prisma.category.upsert({
+                  where: { name: categoria },
+                  update: {},
+                  create: { name: categoria },
+                })
+              }
             }
 
             // Verificar se produto já existe (por nome) - usar mapa para busca rápida
@@ -319,14 +363,10 @@ export async function POST(req: NextRequest) {
                 productNameMap.set(normalizedProductName, product)
                 existingProductNames.add(normalizedProductName)
                 
-                if (i % 100 === 0) {
-                  console.log(`Processados ${i + 1} produtos, ${results.success} criados`)
-                }
               } catch (createError: any) {
                 console.error(`Erro ao criar produto na linha ${i + 2}:`, createError)
                 // Se o erro for de duplicata (unique constraint), tentar buscar o produto existente
                 if (createError.code === 'P2002' || createError.message?.includes('Unique constraint')) {
-                  console.log(`Produto "${productName}" já existe (erro de constraint), buscando...`)
                   const existingProduct = await prisma.product.findFirst({
                     where: {
                       name: productName,
@@ -429,12 +469,12 @@ export async function POST(req: NextRequest) {
 
     if (confirm) {
       return NextResponse.json({
-        message: `Importação concluída: ${results.success} produtos criados, ${results.skipped} produtos existentes tiveram preços adicionados, ${results.errors} erros`,
+        message: `Importação concluída: ${results.success} produtos únicos criados, ${results.skipped} produtos únicos existentes tiveram preços adicionados, ${results.errors} erros`,
         results,
       })
     } else {
       return NextResponse.json({
-        message: `Preview: ${results.preview.length} produtos prontos para importar, ${results.skipped} produtos existentes terão preços adicionados, ${results.errors} erros encontrados`,
+        message: `Preview: ${results.preview.length} produtos únicos prontos para importar, ${results.skipped} produtos únicos existentes terão preços adicionados, ${results.errors} erros encontrados`,
         results,
         isPreview: true,
       })

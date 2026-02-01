@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
     }
 
     const { key, value } = await request.json()
-    console.log(`Atualizando configuração: ${key} = ${value}`)
 
     if (!key) {
       return NextResponse.json({ error: 'Chave não fornecida' }, { status: 400 })

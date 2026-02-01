@@ -12,12 +12,6 @@ async function getCloudinary() {
     const apiKey = process.env.CLOUDINARY_API_KEY
     const apiSecret = process.env.CLOUDINARY_API_SECRET
 
-    console.log('Verificando configuração Cloudinary:', {
-      uploadMode,
-      hasCloudName: !!cloudName,
-      hasApiKey: !!apiKey,
-      hasApiSecret: !!apiSecret
-    })
 
     if (!cloudName || !apiKey || !apiSecret || uploadMode !== 'cloudinary') {
       console.warn('Cloudinary não configurado corretamente')
@@ -45,7 +39,6 @@ async function getCloudinary() {
       api_secret: cleanApiSecret,
     })
 
-    console.log('Cloudinary configurado com sucesso:', cleanCloudName)
     return cloudinary
   } catch (error: any) {
     console.error('Erro ao configurar Cloudinary:', {
@@ -99,8 +92,6 @@ export async function POST(req: NextRequest) {
     const cloudinary = await getCloudinary()
     if (cloudinary && process.env.UPLOAD_MODE === 'cloudinary') {
       try {
-        console.log('Iniciando upload para Cloudinary...')
-        console.log('File info:', { name: file.name, type: file.type, size: file.size })
         
         // Converter para base64
         const base64 = buffer.toString('base64')
@@ -124,7 +115,6 @@ export async function POST(req: NextRequest) {
                 })
                 reject(error)
               } else {
-                console.log('Cloudinary upload success:', result?.secure_url)
                 resolve(result)
               }
             }
@@ -136,7 +126,6 @@ export async function POST(req: NextRequest) {
           throw new Error('Cloudinary retornou resultado inválido')
         }
 
-        console.log('Upload concluído com sucesso:', result.secure_url)
         return NextResponse.json({ imageUrl: result.secure_url })
       } catch (cloudinaryError: any) {
         const errorDetails = {

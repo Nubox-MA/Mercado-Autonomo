@@ -36,3 +36,14 @@ next-env.d.ts
 # uploads
 /public/uploads
 
+# database
+*.db
+*.db-journal
+prisma/dev.db
+prisma/prisma/dev.db
+
+# database
+*.db
+*.db-journal
+prisma/dev.db
+prisma/prisma/dev.db

@@ -187,6 +187,21 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// Helper para buscar ou criar categoria "Sem Categoria"
+async function getOrCreateUncategorizedCategory() {
+  let uncategorizedCategory = await prisma.category.findUnique({
+    where: { name: 'Sem Categoria' },
+  })
+
+  if (!uncategorizedCategory) {
+    uncategorizedCategory = await prisma.category.create({
+      data: { name: 'Sem Categoria' },
+    })
+  }
+
+  return uncategorizedCategory
+}
+
 // POST - Criar produto (admin)
 export async function POST(req: NextRequest) {
   const auth = await authMiddleware(req, true)
@@ -199,6 +214,12 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { condominiumPrices, ...productData } = body
     const data = createProductSchema.parse(productData)
+
+    // Se não tiver categoria, atribuir à "Sem Categoria"
+    if (!data.categoryId) {
+      const uncategorizedCategory = await getOrCreateUncategorizedCategory()
+      data.categoryId = uncategorizedCategory.id
+    }
 
     // Criar produto
     const product = await prisma.product.create({

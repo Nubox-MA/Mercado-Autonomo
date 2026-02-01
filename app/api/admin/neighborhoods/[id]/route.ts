@@ -13,17 +13,12 @@ export async function PUT(
   { params }: RouteParams
 ) {
   try {
-    console.log('PUT /api/admin/neighborhoods/[id] - Iniciando...')
-    
     const auth = await authMiddleware(request, true)
     if (!auth.authorized) {
-      console.log('PUT - Não autorizado')
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
     }
 
     const id = params.id
-
-    console.log('PUT - ID recebido:', id)
 
     if (!id) {
       return NextResponse.json({ error: 'ID não fornecido' }, { status: 400 })
@@ -32,7 +27,6 @@ export async function PUT(
     let body
     try {
       body = await request.json()
-      console.log('PUT - Body recebido:', JSON.stringify(body, null, 2))
     } catch (e) {
       console.error('PUT - Erro ao ler body:', e)
       return NextResponse.json({ error: 'Erro ao processar dados' }, { status: 400 })
@@ -81,13 +75,8 @@ export async function PUT(
       }
     }
 
-    console.log('PUT - Dados para atualizar:', JSON.stringify(updateData, null, 2))
-    console.log('PUT - ID do registro:', id)
-    console.log('PUT - Tipo de photoUrl:', typeof updateData.photoUrl, updateData.photoUrl)
-
     // Verificar se há dados para atualizar
     if (Object.keys(updateData).length === 0) {
-      console.log('PUT - Nenhum dado para atualizar, retornando registro atual')
       const current = await prisma.neighborhood.findUnique({ where: { id } })
       if (!current) {
         return NextResponse.json({ error: 'Local não encontrado' }, { status: 404 })
@@ -100,16 +89,13 @@ export async function PUT(
     try {
       existing = await prisma.neighborhood.findUnique({ where: { id } })
       if (!existing) {
-        console.log('PUT - Registro não encontrado')
         return NextResponse.json({ error: 'Local não encontrado' }, { status: 404 })
       }
-      console.log('PUT - Registro encontrado:', existing.name)
     } catch (e) {
       console.error('PUT - Erro ao buscar registro:', e)
       return NextResponse.json({ error: 'Erro ao buscar local' }, { status: 500 })
     }
 
-    console.log('PUT - Registro encontrado, atualizando...')
     let neighborhood
     try {
       neighborhood = await prisma.neighborhood.update({
@@ -118,12 +104,9 @@ export async function PUT(
       })
     } catch (e: any) {
       console.error('PUT - Erro ao atualizar no Prisma:', e)
-      console.error('PUT - Erro code:', e.code)
-      console.error('PUT - Erro message:', e.message)
-      throw e // Re-lançar para ser capturado pelo catch externo
+      throw e
     }
 
-    console.log('PUT - Sucesso!', JSON.stringify(neighborhood, null, 2))
     return NextResponse.json(neighborhood)
   } catch (error: any) {
     console.error('Update neighborhood error:', error)

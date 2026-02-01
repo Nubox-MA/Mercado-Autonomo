@@ -31,6 +31,13 @@ export default function RootLayout({
             containerStyle={{
               top: '80px', // Abaixo do navbar (64px + 16px de margem)
             }}
+            toastOptions={{
+              duration: 3000, // 3 segundos
+              style: {
+                background: '#fff',
+                color: '#363636',
+              },
+            }}
           />
         </Providers>
       </body>

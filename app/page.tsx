@@ -3,14 +3,17 @@
 import { useEffect, useState } from 'react'
 import { useCondominium } from '@/contexts/CondominiumContext'
 import { useRouter } from 'next/navigation'
+import { useCart } from '@/contexts/CartContext'
+import { useFavorites } from '@/contexts/FavoritesContext'
 import Navbar from '@/components/Navbar'
 import ProductCard from '@/components/ProductCard'
 import SearchBar from '@/components/SearchBar'
 import Footer from '@/components/Footer'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import Image from 'next/image'
 
-import { ChevronDown, Filter, SlidersHorizontal } from 'lucide-react'
+import { LayoutGrid, List, Package, Heart, ShoppingCart } from 'lucide-react'
 
 interface Product {
   id: string
@@ -39,6 +42,8 @@ interface Category {
 
 export default function Home() {
   const { selectedCondominium, isLoading: condominiumLoading } = useCondominium()
+  const { addItem } = useCart()
+  const { isFavorited, toggleFavorite } = useFavorites()
   const router = useRouter()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -50,9 +55,7 @@ export default function Home() {
   const [sortBy, setSortBy] = useState('name')
   const [isPromotion, setIsPromotion] = useState(false)
   const [isNew, setIsNew] = useState(false)
-  const [minPrice, setMinPrice] = useState('')
-  const [maxPrice, setMaxPrice] = useState('')
-  const [showFilters, setShowFilters] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   useEffect(() => {
     // Se não tiver condomínio selecionado, redireciona para seleção
@@ -66,6 +69,19 @@ export default function Home() {
       fetchCategories()
     }
   }, [selectedCondominium])
+
+  // Carregar preferência de visualização do localStorage
+  useEffect(() => {
+    const savedViewMode = localStorage.getItem('productViewMode') as 'grid' | 'list' | null
+    if (savedViewMode) {
+      setViewMode(savedViewMode)
+    }
+  }, [])
+
+  // Salvar preferência de visualização no localStorage
+  useEffect(() => {
+    localStorage.setItem('productViewMode', viewMode)
+  }, [viewMode])
 
   useEffect(() => {
     if (selectedCondominium) {
@@ -96,8 +112,6 @@ export default function Home() {
       if (selectedCategory) params.append('categoryId', selectedCategory)
       if (isPromotion) params.append('isPromotion', 'true')
       if (isNew) params.append('isNew', 'true')
-      if (minPrice) params.append('minPrice', minPrice)
-      if (maxPrice) params.append('maxPrice', maxPrice)
 
       const response = await axios.get(`/api/products?${params}`)
       setProducts(response.data.products)
@@ -109,10 +123,6 @@ export default function Home() {
     }
   }
 
-  const handleApplyPriceFilter = (e: React.FormEvent) => {
-    e.preventDefault()
-    fetchProducts()
-  }
 
   if (condominiumLoading || !selectedCondominium) {
     return (
@@ -136,89 +146,38 @@ export default function Home() {
             <h1 className="text-3xl font-black text-gray-900">Catálogo</h1>
             <p className="text-gray-500">Encontre o que você precisa hoje</p>
           </div>
-        </div>
-
-        {/* Search and Quick Filters */}
-        <div className="space-y-4 mb-8">
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <SearchBar onSearch={setSearchQuery} />
-            </div>
+          {/* Botões de Visualização */}
+          <div className="flex items-center gap-1 bg-white p-1 rounded-lg border">
             <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`px-4 py-2 rounded-xl border flex items-center gap-2 transition font-medium ${showFilters ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded transition ${
+                viewMode === 'grid'
+                  ? 'bg-primary-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              title="Visualização em grade"
             >
-              <SlidersHorizontal size={20} />
-              <span className="hidden sm:inline">Filtros</span>
+              <LayoutGrid size={18} />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-1.5 rounded transition ${
+                viewMode === 'list'
+                  ? 'bg-primary-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              title="Visualização em lista"
+            >
+              <List size={18} />
             </button>
           </div>
+        </div>
 
-          {/* Advanced Filters Panel */}
-          {showFilters && (
-            <div className="bg-white p-6 rounded-2xl shadow-sm border animate-in fade-in slide-in-from-top-2 duration-300">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Sort */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Ordenar por</label>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="w-full p-2 rounded-lg border focus:ring-2 focus:ring-primary-500 outline-none"
-                  >
-                    <option value="name">Nome (A-Z)</option>
-                    <option value="price_asc">Menor Preço</option>
-                    <option value="price_desc">Maior Preço</option>
-                    <option value="views">Mais Vistos</option>
-                    <option value="newest">Lançamentos</option>
-                  </select>
-                </div>
-
-                {/* Price Range */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Faixa de Preço</label>
-                  <form onSubmit={handleApplyPriceFilter} className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      placeholder="Min"
-                      value={minPrice}
-                      onChange={(e) => setMinPrice(e.target.value)}
-                      className="w-full p-2 rounded-lg border text-sm"
-                    />
-                    <span className="text-gray-400">-</span>
-                    <input
-                      type="number"
-                      placeholder="Max"
-                      value={maxPrice}
-                      onChange={(e) => setMaxPrice(e.target.value)}
-                      className="w-full p-2 rounded-lg border text-sm"
-                    />
-                    <button type="submit" className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200">
-                      OK
-                    </button>
-                  </form>
-                </div>
-
-                {/* Status Toggles */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Destaques</label>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setIsPromotion(!isPromotion)}
-                      className={`flex-1 py-2 rounded-lg border text-sm font-medium transition ${isPromotion ? 'bg-red-50 text-red-600 border-red-200' : 'bg-white text-gray-600'}`}
-                    >
-                      🔥 Promoções
-                    </button>
-                    <button
-                      onClick={() => setIsNew(!isNew)}
-                      className={`flex-1 py-2 rounded-lg border text-sm font-medium transition ${isNew ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-white text-gray-600'}`}
-                    >
-                      ✨ Novidades
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+        {/* Search */}
+        <div className="space-y-4 mb-8">
+          <div className="flex-1">
+            <SearchBar onSearch={setSearchQuery} />
+          </div>
 
           {/* Categories Horizontal Scroll */}
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -305,8 +264,6 @@ export default function Home() {
                 setSearchQuery('')
                 setIsPromotion(false)
                 setIsNew(false)
-                setMinPrice('')
-                setMaxPrice('')
                 setSortBy('name')
               }}
               className="text-primary-600 font-bold hover:underline"
@@ -314,10 +271,81 @@ export default function Home() {
               Limpar todos os filtros
             </button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        ) : viewMode === 'grid' ? (
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
             {products.map((product) => (
               <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {products.map((product) => (
+              <div key={product.id} className="bg-white rounded-xl border p-4 hover:shadow-md transition">
+                <div className="flex gap-4">
+                  <div className="relative w-20 h-20 sm:w-24 sm:h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                    {product.imageUrl ? (
+                      <Image
+                        src={product.imageUrl}
+                        alt={product.name}
+                        fill
+                        sizes="96px"
+                        className="object-contain"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400">
+                        <Package size={32} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 flex flex-col justify-between min-w-0">
+                    <div>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-base sm:text-lg text-gray-900 mb-1 truncate">{product.name}</h3>
+                          {product.category && (
+                            <span className="inline-block px-2 py-1 bg-primary-50 text-primary-600 text-xs font-medium rounded mb-2">
+                              {product.category.name}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          {product.isPromotion && product.promoPrice ? (
+                            <div>
+                              <p className="text-sm text-gray-500 line-through">R$ {product.price.toFixed(2).replace('.', ',')}</p>
+                              <p className="text-xl font-black text-red-600">R$ {product.promoPrice.toFixed(2).replace('.', ',')}</p>
+                            </div>
+                          ) : (
+                            <p className="text-xl font-black text-primary-600">R$ {product.price.toFixed(2).replace('.', ',')}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 mt-3">
+                      <button
+                        onClick={() => toggleFavorite(product)}
+                        className={`p-2 rounded-lg transition ${
+                          isFavorited(product.id)
+                            ? 'bg-red-50 text-red-600'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                        title={isFavorited(product.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                      >
+                        <Heart size={18} fill={isFavorited(product.id) ? 'currentColor' : 'none'} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          addItem(product, selectedCondominium!.id)
+                          toast.success('Produto adicionado ao carrinho!')
+                        }}
+                        className="flex-1 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg font-medium transition flex items-center justify-center gap-2"
+                      >
+                        <ShoppingCart size={18} />
+                        Adicionar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         )}

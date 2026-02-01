@@ -68,8 +68,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   }
 
   const handleToggleFavorite = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+    e.stopPropagation() // Apenas stopPropagation para não propagar o clique do card
     toggleFavorite(product)
   }
 
