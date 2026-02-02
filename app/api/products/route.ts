@@ -34,18 +34,23 @@ export async function GET(req: NextRequest) {
     
     // Se não tiver neighborhoodId, ainda assim buscar produtos (sem preços específicos)
 
+    // Construir condições de busca
     if (search) {
       where.OR = [
-        { name: { contains: search } },
-        { description: { contains: search } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
       ]
     }
 
+    // Aplicar outros filtros (AND com a busca)
     if (categoryId) {
       where.categoryId = categoryId
     }
 
     if (activeOnly) {
+      where.active = true
+    } else {
+      // Por padrão, mostrar apenas produtos ativos
       where.active = true
     }
 
