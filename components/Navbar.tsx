@@ -6,7 +6,8 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCart } from '@/contexts/CartContext'
 import { useCondominium } from '@/contexts/CondominiumContext'
-import { ShoppingCart, User, LogOut, Settings, Heart, History, MapPin, Lock } from 'lucide-react'
+import { useNavigation } from '@/contexts/NavigationContext'
+import { ShoppingCart, User, LogOut, Settings, Heart, History, MapPin, Lock, Home } from 'lucide-react'
 import ProfileModal from '@/components/ProfileModal'
 import ConfirmModal from '@/components/ConfirmModal'
 import Image from 'next/image'
@@ -15,10 +16,35 @@ export default function Navbar() {
   const { user, logout, isAdmin, isLoading } = useAuth()
   const { itemCount, clearCart } = useCart()
   const { selectedCondominium, setSelectedCondominium } = useCondominium()
+  const { activeTab, setActiveTab } = useNavigation()
   const router = useRouter()
   const pathname = usePathname()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [showChangeCondominiumModal, setShowChangeCondominiumModal] = useState(false)
+
+  // Sincronizar aba ativa com a URL quando necessário (apenas para páginas que não são abas)
+  useEffect(() => {
+    // Se estiver em uma página admin ou outras páginas especiais, não mudar a aba
+    if (pathname?.startsWith('/admin') || pathname === '/select-condominium' || pathname === '/login') {
+      return
+    }
+    
+    // Se estiver na home, garantir que a aba home esteja ativa
+    if (pathname === '/') {
+      setActiveTab('home')
+    }
+  }, [pathname, setActiveTab])
+
+  // Função para mudar de aba sem mudar a URL
+  const handleTabChange = (tab: 'home' | 'favorites' | 'cart' | 'orders') => {
+    // Só mudar se não estiver em páginas especiais
+    if (pathname?.startsWith('/admin') || pathname === '/select-condominium' || pathname === '/login') {
+      return
+    }
+    setActiveTab(tab)
+    // Scroll para o topo
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   // Abrir modal automaticamente se o perfil estiver incompleto após o login (apenas para admin)
   useEffect(() => {
@@ -52,28 +78,49 @@ export default function Navbar() {
               {/* Mobile: Apenas ícones essenciais */}
               {/* Desktop: Todos os elementos */}
               
+              {/* Home - só mostrar se não estiver em páginas especiais */}
+              {!pathname?.startsWith('/admin') && pathname !== '/select-condominium' && pathname !== '/login' && (
+                <button
+                  onClick={() => handleTabChange('home')}
+                  className={`relative hover:bg-primary-700 p-2 rounded-lg transition ${
+                    activeTab === 'home' ? 'bg-primary-700' : ''
+                  }`}
+                  title="Início"
+                >
+                  <Home size={22} />
+                </button>
+              )}
+
               {/* Favoritos */}
-              <Link
-                href="/favorites"
-                className="relative hover:bg-primary-700 p-2 rounded-lg transition"
-                title="Meus Favoritos"
-              >
-                <Heart size={22} />
-              </Link>
+              {!pathname?.startsWith('/admin') && pathname !== '/select-condominium' && pathname !== '/login' && (
+                <button
+                  onClick={() => handleTabChange('favorites')}
+                  className={`relative hover:bg-primary-700 p-2 rounded-lg transition ${
+                    activeTab === 'favorites' ? 'bg-primary-700' : ''
+                  }`}
+                  title="Meus Favoritos"
+                >
+                  <Heart size={22} fill={activeTab === 'favorites' ? 'currentColor' : 'none'} />
+                </button>
+              )}
 
               {/* Carrinho */}
-              <Link
-                href="/cart"
-                className="relative hover:bg-primary-700 p-2 rounded-lg transition"
-                title="Minha Lista"
-              >
-                <ShoppingCart size={22} />
-                {itemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                    {itemCount}
-                  </span>
-                )}
-              </Link>
+              {!pathname?.startsWith('/admin') && pathname !== '/select-condominium' && pathname !== '/login' && (
+                <button
+                  onClick={() => handleTabChange('cart')}
+                  className={`relative hover:bg-primary-700 p-2 rounded-lg transition ${
+                    activeTab === 'cart' ? 'bg-primary-700' : ''
+                  }`}
+                  title="Minha Lista"
+                >
+                  <ShoppingCart size={22} />
+                  {itemCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                      {itemCount}
+                    </span>
+                  )}
+                </button>
+              )}
 
               {/* Condomínio - só mostrar se não estiver na página de seleção */}
               {selectedCondominium && pathname !== '/select-condominium' && (
