@@ -28,6 +28,8 @@ export default function BackupPage() {
   const [libraryBackupFile, setLibraryBackupFile] = useState<File | null>(null)
   const [libraryNotes, setLibraryNotes] = useState('')
   const [isAddingToLibrary, setIsAddingToLibrary] = useState(false)
+  const [migrationNeeded, setMigrationNeeded] = useState(false)
+  const [migrationSQL, setMigrationSQL] = useState<string | null>(null)
 
   const handleDownloadBackup = async () => {
     try {
@@ -122,7 +124,25 @@ export default function BackupPage() {
       setSavedBackups(response.data.backups || [])
     } catch (error: any) {
       console.error('Load backups error:', error)
-      toast.error('Erro ao carregar backups salvos')
+      if (error.response?.data?.migrationNeeded) {
+        const sql = error.response?.data?.sql
+        setMigrationNeeded(true)
+        setMigrationSQL(sql || null)
+        toast.error(
+          `⚠️ Tabela de backups não encontrada. Veja a mensagem abaixo para o SQL necessário.`,
+          { duration: 10000 }
+        )
+        if (sql) {
+          console.log('SQL necessário para criar a tabela:')
+          console.log(sql)
+        }
+      } else {
+        setMigrationNeeded(false)
+        setMigrationSQL(null)
+        toast.error(error.response?.data?.error || 'Erro ao carregar backups salvos')
+      }
+      // Retornar array vazio para não quebrar a UI
+      setSavedBackups([])
     } finally {
       setIsLoadingBackups(false)
     }
@@ -186,7 +206,29 @@ export default function BackupPage() {
       loadSavedBackups()
     } catch (error: any) {
       console.error('Add to library error:', error)
-      toast.error(error.response?.data?.error || 'Erro ao adicionar backup à biblioteca')
+      if (error.response?.data?.migrationNeeded) {
+        const sql = error.response?.data?.sql
+        setMigrationNeeded(true)
+        setMigrationSQL(sql || null)
+        toast.error(
+          `⚠️ Tabela de backups não encontrada. Veja a mensagem abaixo para o SQL necessário.`,
+          { duration: 12000 }
+        )
+        if (sql) {
+          console.error('═══════════════════════════════════════════════════════')
+          console.error('SQL NECESSÁRIO PARA CRIAR A TABELA:')
+          console.error('═══════════════════════════════════════════════════════')
+          console.log(sql)
+          console.error('═══════════════════════════════════════════════════════')
+          console.error('Execute este SQL no Supabase SQL Editor')
+          console.error('═══════════════════════════════════════════════════════')
+        }
+      } else {
+        setMigrationNeeded(false)
+        setMigrationSQL(null)
+        const errorMsg = error.response?.data?.error || error.response?.data?.details || 'Erro ao adicionar backup à biblioteca'
+        toast.error(errorMsg, { duration: 6000 })
+      }
     } finally {
       setIsAddingToLibrary(false)
     }
@@ -244,6 +286,85 @@ export default function BackupPage() {
           </p>
         </div>
       </div>
+
+      {/* Alerta de Migração Necessária */}
+      {migrationNeeded && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={24} className="text-red-600 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="font-bold text-red-800 text-lg mb-2">
+                ⚠️ Tabela de Backups não encontrada!
+              </h3>
+              <p className="text-sm text-red-700 mb-4">
+                Para usar a biblioteca de backups, você precisa criar a tabela "backups" no seu banco de dados.
+                Por favor, siga as instruções abaixo:
+              </p>
+              <ol className="list-decimal list-inside text-sm text-red-700 mb-4 space-y-2">
+                <li>
+                  Acesse o seu{' '}
+                  <a
+                    href="https://supabase.com/dashboard"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-red-900 underline font-medium hover:text-red-950"
+                  >
+                    Supabase Dashboard
+                  </a>
+                  {' '}→ Selecione seu projeto → <strong>SQL Editor</strong> (no menu lateral)
+                </li>
+                <li>Clique em <strong>"New Query"</strong> ou no botão <strong>"+"</strong></li>
+                <li>Cole o código SQL abaixo na área de texto</li>
+                <li>Clique em <strong>"Run"</strong> (ou pressione <kbd className="px-1 py-0.5 bg-red-200 rounded text-xs">Ctrl+Enter</kbd>)</li>
+                <li>Aguarde a mensagem de sucesso</li>
+                <li>Volte aqui e clique em <strong>"Tentar Novamente"</strong></li>
+              </ol>
+              {migrationSQL && (
+                <div className="bg-red-100 border border-red-300 rounded-md p-4 mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-red-900">SQL para executar:</span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(migrationSQL)
+                        toast.success('✅ SQL copiado! Cole no Supabase SQL Editor')
+                      }}
+                      className="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 transition-colors"
+                    >
+                      📋 Copiar
+                    </button>
+                  </div>
+                  <pre className="text-red-900 text-xs overflow-x-auto whitespace-pre-wrap font-mono bg-white p-3 rounded border">
+                    <code>{migrationSQL}</code>
+                  </pre>
+                </div>
+              )}
+              <div className="flex items-center gap-3 flex-wrap">
+                <a
+                  href="https://supabase.com/dashboard"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+                >
+                  🔗 Abrir Supabase
+                </a>
+                <button
+                  onClick={() => {
+                    setMigrationNeeded(false)
+                    setMigrationSQL(null)
+                    loadSavedBackups()
+                  }}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-2"
+                >
+                  ✅ Já executei o SQL - Tentar Novamente
+                </button>
+              </div>
+              <p className="text-xs text-red-600 mt-4">
+                <strong>Arquivo de referência:</strong> CRIAR_TABELA_BACKUPS.sql na raiz do projeto
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Card: Fazer Backup */}
@@ -394,6 +515,14 @@ export default function BackupPage() {
             <p className="text-sm text-gray-500 mt-1">
               Adicione um backup acima para começar
             </p>
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-left">
+              <p className="text-xs text-yellow-800 font-medium mb-1">
+                ⚠️ Se estiver vendo erros 500:
+              </p>
+              <p className="text-xs text-yellow-700">
+                Execute o SQL em <strong>CRIAR_TABELA_BACKUPS.sql</strong> no Supabase SQL Editor para criar a tabela de backups.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">

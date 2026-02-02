@@ -38,6 +38,19 @@ export async function GET(
     })
   } catch (error: any) {
     console.error('Download backup error:', error)
+    
+    // Verificar se é erro de tabela não encontrada
+    if (error.code === 'P2021' || error.message?.includes('does not exist') || error.message?.includes('backups')) {
+      return NextResponse.json(
+        { 
+          error: 'Tabela de backups não encontrada',
+          details: 'Execute a migration para criar a tabela backups no banco de dados',
+          migrationNeeded: true
+        },
+        { status: 500 }
+      )
+    }
+    
     return NextResponse.json(
       { error: 'Erro ao baixar backup', details: error.message },
       { status: 500 }
