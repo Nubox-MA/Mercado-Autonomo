@@ -33,24 +33,13 @@ export async function GET(req: NextRequest) {
     const where: any = {}
     
     // Se não tiver neighborhoodId, ainda assim buscar produtos (sem preços específicos)
+    // Nota: A busca case-insensitive será feita após buscar do banco para garantir compatibilidade
 
-    // Construir condições de busca
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ]
-    }
-
-    // Aplicar outros filtros (AND com a busca)
     if (categoryId) {
       where.categoryId = categoryId
     }
 
     if (activeOnly) {
-      where.active = true
-    } else {
-      // Por padrão, mostrar apenas produtos ativos
       where.active = true
     }
 
@@ -111,9 +100,20 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Aplicar filtro case-insensitive de busca se necessário (após buscar do banco)
+    let filteredProducts = products
+    if (search) {
+      const searchLower = search.toLowerCase()
+      filteredProducts = products.filter((product) => {
+        const nameMatch = product.name.toLowerCase().includes(searchLower)
+        const descMatch = product.description?.toLowerCase().includes(searchLower) || false
+        return nameMatch || descMatch
+      })
+    }
+
     // Mapear produtos para usar preços específicos do condomínio quando disponível
     // IMPORTANTE: Se neighborhoodId for fornecido, mostrar apenas produtos que têm preço para esse condomínio
-    const productsWithPrices = products
+    const productsWithPrices = filteredProducts
       .map((product) => {
         // Se tiver neighborhoodId, produto DEVE ter preço para esse condomínio
         if (neighborhoodId && 'productPrices' in product) {
