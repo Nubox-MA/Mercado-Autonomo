@@ -150,6 +150,7 @@ export default function BackupPage() {
 
   useEffect(() => {
     loadSavedBackups()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Adicionar backup à biblioteca
@@ -297,7 +298,7 @@ export default function BackupPage() {
                 ⚠️ Tabela de Backups não encontrada!
               </h3>
               <p className="text-sm text-red-700 mb-4">
-                Para usar a biblioteca de backups, você precisa criar a tabela "backups" no seu banco de dados.
+                Para usar a biblioteca de backups, você precisa criar a tabela &quot;backups&quot; no seu banco de dados.
                 Por favor, siga as instruções abaixo:
               </p>
               <ol className="list-decimal list-inside text-sm text-red-700 mb-4 space-y-2">
@@ -313,11 +314,11 @@ export default function BackupPage() {
                   </a>
                   {' '}→ Selecione seu projeto → <strong>SQL Editor</strong> (no menu lateral)
                 </li>
-                <li>Clique em <strong>"New Query"</strong> ou no botão <strong>"+"</strong></li>
+                <li>Clique em <strong>&quot;New Query&quot;</strong> ou no botão <strong>&quot;+&quot;</strong></li>
                 <li>Cole o código SQL abaixo na área de texto</li>
-                <li>Clique em <strong>"Run"</strong> (ou pressione <kbd className="px-1 py-0.5 bg-red-200 rounded text-xs">Ctrl+Enter</kbd>)</li>
+                <li>Clique em <strong>&quot;Run&quot;</strong> (ou pressione <kbd className="px-1 py-0.5 bg-red-200 rounded text-xs">Ctrl+Enter</kbd>)</li>
                 <li>Aguarde a mensagem de sucesso</li>
-                <li>Volte aqui e clique em <strong>"Tentar Novamente"</strong></li>
+                <li>Volte aqui e clique em <strong>&quot;Tentar Novamente&quot;</strong></li>
               </ol>
               {migrationSQL && (
                 <div className="bg-red-100 border border-red-300 rounded-md p-4 mb-4">
