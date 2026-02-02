@@ -34,23 +34,13 @@ export default function SelectCondominiumPage() {
   const fetchCondominiums = async () => {
     try {
       const response = await axios.get('/api/admin/neighborhoods')
-      // Garantir que response.data seja um array
-      const data = Array.isArray(response.data) ? response.data : []
-      const activeCondominiums = data
-        .filter((c: Condominium) => c.active !== false) // Incluir se active for true ou undefined
+      const activeCondominiums = response.data
+        .filter((c: Condominium) => c.active)
         .sort((a: Condominium, b: Condominium) => a.name.localeCompare(b.name))
       setCondominiums(activeCondominiums)
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao buscar condomínios:', error)
-      // Se for erro 500 ou outro erro, mostrar mensagem mas não quebrar
-      if (error.response?.status === 500) {
-        console.error('Erro 500 na API de neighborhoods:', error.response?.data)
-      }
-      // Não mostrar toast de erro se a API retornar array vazio (status 200)
-      if (error.response?.status !== 200) {
-        toast.error('Erro ao carregar condomínios')
-      }
-      setCondominiums([]) // Garantir que seja array vazio
+      toast.error('Erro ao carregar condomínios')
     } finally {
       setLoading(false)
     }

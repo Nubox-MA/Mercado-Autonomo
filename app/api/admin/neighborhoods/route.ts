@@ -4,26 +4,11 @@ import { authMiddleware } from '@/lib/middleware'
 
 export async function GET(request: NextRequest) {
   try {
-    // Tentar buscar com filtro active primeiro
-    let neighborhoods
-    try {
-      neighborhoods = await prisma.neighborhood.findMany({
-        where: { active: true },
-        orderBy: { name: 'asc' }
-      })
-    } catch (activeError: any) {
-      // Se falhar (coluna active pode não existir), buscar todos
-      console.warn('Erro ao buscar com filtro active, tentando sem filtro:', activeError?.message)
-      neighborhoods = await prisma.neighborhood.findMany({
-        orderBy: { name: 'asc' }
-      })
-      // Filtrar no código se necessário
-      if (Array.isArray(neighborhoods)) {
-        neighborhoods = neighborhoods.filter((n: any) => n.active !== false)
-      }
-    }
-    
-    return NextResponse.json(neighborhoods || [])
+    const neighborhoods = await prisma.neighborhood.findMany({
+      where: { active: true },
+      orderBy: { name: 'asc' }
+    })
+    return NextResponse.json(neighborhoods)
   } catch (error: any) {
     console.error('Error fetching neighborhoods:', error)
     console.error('Error details:', {
@@ -31,9 +16,10 @@ export async function GET(request: NextRequest) {
       code: error?.code,
       meta: error?.meta
     })
-    
-    // Retornar array vazio em vez de erro para não quebrar a página
-    return NextResponse.json([], { status: 200 })
+    return NextResponse.json({ 
+      error: 'Erro ao buscar locais',
+      details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+    }, { status: 500 })
   }
 }
 
