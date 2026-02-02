@@ -1,13 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useCart } from '@/contexts/CartContext'
 import { useCondominium } from '@/contexts/CondominiumContext'
 import { useNavigation } from '@/contexts/NavigationContext'
-import { ShoppingCart, User, LogOut, Settings, Heart, History, MapPin, Lock, Home } from 'lucide-react'
+import { ShoppingCart, User, LogOut, Settings, Heart, History, MapPin, Lock } from 'lucide-react'
 import ProfileModal from '@/components/ProfileModal'
 import ConfirmModal from '@/components/ConfirmModal'
 import Image from 'next/image'
@@ -23,21 +23,8 @@ export default function Navbar() {
 
   const { activeTab, setActiveTab } = useNavigation()
 
-  // Sincronizar aba ativa com a URL quando necessário (apenas para páginas que não são abas)
-  useEffect(() => {
-    // Se estiver em uma página admin ou outras páginas especiais, não mudar a aba
-    if (pathname?.startsWith('/admin') || pathname === '/select-condominium' || pathname === '/login') {
-      return
-    }
-    
-    // Se estiver na home, garantir que a aba home esteja ativa
-    if (pathname === '/') {
-      setActiveTab('home')
-    }
-  }, [pathname, setActiveTab])
-
   // Função para mudar de aba sem mudar a URL
-  const handleTabChange = (tab: 'home' | 'favorites' | 'cart' | 'orders') => {
+  const handleTabChange = useCallback((tab: 'home' | 'favorites' | 'cart' | 'orders') => {
     // Só mudar se não estiver em páginas especiais
     if (pathname?.startsWith('/admin') || pathname === '/select-condominium' || pathname === '/login') {
       return
@@ -47,7 +34,7 @@ export default function Navbar() {
     if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
-  }
+  }, [pathname, setActiveTab])
 
   // Abrir modal automaticamente se o perfil estiver incompleto após o login (apenas para admin)
   useEffect(() => {
@@ -73,27 +60,26 @@ export default function Navbar() {
       >
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <Link href="/" className="text-lg sm:text-xl font-black tracking-tighter sm:tracking-tight flex-shrink-0">
-              Mercado<span className="text-primary-200">Autônomo</span>
-            </Link>
+            {!pathname?.startsWith('/admin') && pathname !== '/select-condominium' && pathname !== '/login' ? (
+              <button
+                onClick={() => handleTabChange('home')}
+                className={`text-lg sm:text-xl font-black tracking-tighter sm:tracking-tight flex-shrink-0 hover:opacity-80 transition ${
+                  activeTab === 'home' ? 'opacity-100' : 'opacity-90'
+                }`}
+                title="Início"
+              >
+                Mercado<span className="text-primary-200">Autônomo</span>
+              </button>
+            ) : (
+              <Link href="/" className="text-lg sm:text-xl font-black tracking-tighter sm:tracking-tight flex-shrink-0">
+                Mercado<span className="text-primary-200">Autônomo</span>
+              </Link>
+            )}
 
             <div className="flex items-center gap-1 sm:gap-2 ml-auto">
               {/* Mobile: Apenas ícones essenciais */}
               {/* Desktop: Todos os elementos */}
               
-              {/* Home - só mostrar se não estiver em páginas especiais */}
-              {!pathname?.startsWith('/admin') && pathname !== '/select-condominium' && pathname !== '/login' && (
-                <button
-                  onClick={() => handleTabChange('home')}
-                  className={`relative hover:bg-primary-700 p-2 rounded-lg transition ${
-                    activeTab === 'home' ? 'bg-primary-700' : ''
-                  }`}
-                  title="Início"
-                >
-                  <Home size={22} />
-                </button>
-              )}
-
               {/* Favoritos */}
               {!pathname?.startsWith('/admin') && pathname !== '/select-condominium' && pathname !== '/login' && (
                 <button
