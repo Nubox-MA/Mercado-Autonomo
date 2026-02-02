@@ -16,11 +16,12 @@ export default function Navbar() {
   const { user, logout, isAdmin, isLoading } = useAuth()
   const { itemCount, clearCart } = useCart()
   const { selectedCondominium, setSelectedCondominium } = useCondominium()
-  const { activeTab, setActiveTab } = useNavigation()
   const router = useRouter()
   const pathname = usePathname()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [showChangeCondominiumModal, setShowChangeCondominiumModal] = useState(false)
+
+  const { activeTab, setActiveTab } = useNavigation()
 
   // Sincronizar aba ativa com a URL quando necessário (apenas para páginas que não são abas)
   useEffect(() => {
@@ -43,7 +44,9 @@ export default function Navbar() {
     }
     setActiveTab(tab)
     // Scroll para o topo
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
   }
 
   // Abrir modal automaticamente se o perfil estiver incompleto após o login (apenas para admin)

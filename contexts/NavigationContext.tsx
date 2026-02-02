@@ -44,7 +44,11 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
 export function useNavigation() {
   const context = useContext(NavigationContext)
   if (context === undefined) {
-    throw new Error('useNavigation must be used within a NavigationProvider')
+    // Retornar valores padrão se não estiver dentro do provider
+    return {
+      activeTab: 'home' as Tab,
+      setActiveTab: () => {}
+    }
   }
   return context
 }
