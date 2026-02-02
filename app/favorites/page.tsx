@@ -1,22 +1,34 @@
 'use client'
 
-import { useAuth } from '@/contexts/AuthContext'
 import { useFavorites } from '@/contexts/FavoritesContext'
+import { useCondominium } from '@/contexts/CondominiumContext'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import FavoriteProductCard from '@/components/FavoriteProductCard'
 import Footer from '@/components/Footer'
 import ConfirmModal from '@/components/ConfirmModal'
 import { Heart, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function FavoritesPage() {
-  const { user, isLoading } = useAuth()
   const { favorites, clearFavorites } = useFavorites()
+  const { selectedCondominium, isLoading: condominiumLoading } = useCondominium()
   const router = useRouter()
   const [showClearModal, setShowClearModal] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
-  if (!user) return null
+  useEffect(() => {
+    // Se não tiver condomínio selecionado, redireciona para seleção
+    if (!condominiumLoading && !selectedCondominium) {
+      router.push('/select-condominium')
+      return
+    }
+    // Aguardar um pouco para garantir que os favoritos foram carregados
+    const timer = setTimeout(() => {
+      setIsLoading(false)
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [selectedCondominium, condominiumLoading, router])
 
   const handleClearFavorites = () => {
     clearFavorites()
@@ -50,9 +62,10 @@ export default function FavoritesPage() {
           )}
         </div>
 
-        {isLoading ? (
+        {(isLoading || condominiumLoading) ? (
           <div className="text-center py-20">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary-600 border-t-transparent"></div>
+            <p className="mt-4 text-gray-500 font-medium">Carregando favoritos...</p>
           </div>
         ) : favorites.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-3xl border-2 border-dashed">
@@ -68,9 +81,11 @@ export default function FavoritesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-            {favorites.map((product: any) => (
-              <FavoriteProductCard key={product.id} product={product} />
-            ))}
+            {favorites
+              .filter((product: any) => product && product.id && product.name)
+              .map((product: any) => (
+                <FavoriteProductCard key={product.id} product={product} />
+              ))}
           </div>
         )}
       </main>

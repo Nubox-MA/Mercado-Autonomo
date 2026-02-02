@@ -32,6 +32,11 @@ export default function FavoriteProductCard({ product }: FavoriteProductCardProp
   const { toggleFavorite } = useFavorites()
   const [isRemoving, setIsRemoving] = useState(false)
 
+  // Validação básica do produto
+  if (!product || !product.id || !product.name) {
+    return null
+  }
+
   // Função para registrar visualização no banco
   const trackView = async () => {
     try {
