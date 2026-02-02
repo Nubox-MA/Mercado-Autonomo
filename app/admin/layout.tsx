@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { LayoutDashboard, Package, FolderTree, LogOut, Home, User, Menu, X, MapPin, FileSpreadsheet, Database } from 'lucide-react'
+import Image from 'next/image'
 
 export default function AdminLayout({
   children,
@@ -77,9 +78,33 @@ export default function AdminLayout({
                 <Home size={20} />
                 <span className="hidden sm:inline">Catálogo</span>
               </Link>
+              
+              {/* Mobile: Apenas logout (sem foto do admin) */}
+              {/* Desktop: Foto do admin + logout */}
+              <div className="hidden md:flex items-center gap-2">
+                <div className="bg-primary-700 overflow-hidden rounded-full w-8 h-8 flex items-center justify-center">
+                  {user.photoUrl ? (
+                    <Image
+                      src={user.photoUrl}
+                      alt={user.name || 'Admin'}
+                      width={32}
+                      height={32}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User size={16} />
+                  )}
+                </div>
+                <span className="text-xs font-bold max-w-[100px] truncate">
+                  {user.name}
+                </span>
+              </div>
+              
+              {/* Botão de logout - sempre visível */}
               <button
                 onClick={logout}
-                className="hover:bg-primary-700 p-2 rounded-lg transition flex items-center gap-2"
+                className="bg-red-500 hover:bg-red-600 md:bg-transparent md:hover:bg-primary-700 p-2 rounded-lg transition flex items-center gap-2 text-white md:text-white"
+                title="Sair"
               >
                 <LogOut size={20} />
                 <span className="hidden sm:inline">Sair</span>

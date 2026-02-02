@@ -13,7 +13,7 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import Image from 'next/image'
 
-import { LayoutGrid, List, Package, Heart, ShoppingCart } from 'lucide-react'
+import { LayoutGrid, List, Square, Package, Heart, ShoppingCart } from 'lucide-react'
 
 interface Product {
   id: string
@@ -55,7 +55,19 @@ export default function Home() {
   const [sortBy, setSortBy] = useState('name')
   const [isPromotion, setIsPromotion] = useState(false)
   const [isNew, setIsNew] = useState(false)
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  // Inicializar com valor do localStorage ou padrão
+  const [viewMode, setViewMode] = useState<'list' | 'single' | 'double'>(() => {
+    // Verificar se estamos no cliente antes de acessar localStorage
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('productViewMode')
+      if (saved && ['list', 'single', 'double'].includes(saved)) {
+        return saved as 'list' | 'single' | 'double'
+      }
+      // Se não tiver salvo, usar 'single' como padrão (1 produto por linha)
+      return 'single'
+    }
+    return 'single'
+  })
 
   useEffect(() => {
     // Se não tiver condomínio selecionado, redireciona para seleção
@@ -70,17 +82,21 @@ export default function Home() {
     }
   }, [selectedCondominium])
 
-  // Carregar preferência de visualização do localStorage
+  // Carregar preferência de visualização do localStorage (backup)
   useEffect(() => {
-    const savedViewMode = localStorage.getItem('productViewMode') as 'grid' | 'list' | null
-    if (savedViewMode) {
-      setViewMode(savedViewMode)
+    if (typeof window !== 'undefined') {
+      const savedViewMode = localStorage.getItem('productViewMode') as 'list' | 'single' | 'double' | null
+      if (savedViewMode && ['list', 'single', 'double'].includes(savedViewMode)) {
+        setViewMode(savedViewMode)
+      }
     }
   }, [])
 
-  // Salvar preferência de visualização no localStorage
+  // Salvar preferência de visualização no localStorage sempre que mudar
   useEffect(() => {
-    localStorage.setItem('productViewMode', viewMode)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('productViewMode', viewMode)
+    }
   }, [viewMode])
 
   useEffect(() => {
@@ -149,26 +165,37 @@ export default function Home() {
           {/* Botões de Visualização */}
           <div className="flex items-center gap-1 bg-white p-1 rounded-lg border">
             <button
-              onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded transition ${
-                viewMode === 'grid'
-                  ? 'bg-primary-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-              title="Visualização em grade"
-            >
-              <LayoutGrid size={18} />
-            </button>
-            <button
               onClick={() => setViewMode('list')}
               className={`p-1.5 rounded transition ${
                 viewMode === 'list'
                   ? 'bg-primary-600 text-white'
                   : 'text-gray-600 hover:bg-gray-100'
               }`}
-              title="Visualização em lista"
+              title="Lista"
             >
               <List size={18} />
+            </button>
+            <button
+              onClick={() => setViewMode('single')}
+              className={`p-1.5 rounded transition ${
+                viewMode === 'single'
+                  ? 'bg-primary-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              title="1 produto por linha"
+            >
+              <Square size={18} />
+            </button>
+            <button
+              onClick={() => setViewMode('double')}
+              className={`p-1.5 rounded transition ${
+                viewMode === 'double'
+                  ? 'bg-primary-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              title="2 produtos por linha"
+            >
+              <LayoutGrid size={18} />
             </button>
           </div>
         </div>
@@ -271,13 +298,7 @@ export default function Home() {
               Limpar todos os filtros
             </button>
           </div>
-        ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        ) : (
+        ) : viewMode === 'list' ? (
           <div className="space-y-3">
             {products.map((product) => (
               <div key={product.id} className="bg-white rounded-xl border p-4 hover:shadow-md transition">
@@ -346,6 +367,18 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+            ))}
+          </div>
+        ) : viewMode === 'single' ? (
+          <div className="grid grid-cols-1 gap-4 sm:gap-6">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
             ))}
           </div>
         )}
