@@ -32,6 +32,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart()
   const { toggleFavorite, isFavorited } = useFavorites()
   const [quantity, setQuantity] = useState(1)
+  const [showFullName, setShowFullName] = useState(false)
 
   const favorited = isFavorited(product.id)
 
@@ -131,13 +132,19 @@ export default function ProductCard({ product }: ProductCardProps) {
             {product.category.name}
           </span>
         )}
-        <h3 className="font-bold text-lg mb-1 line-clamp-1">{product.name}</h3>
-        {product.description && (
-          <p className="text-gray-500 text-sm mb-3 line-clamp-2 h-10">
-            {product.description}
-          </p>
-        )}
-        
+        <h3
+          className={`font-bold text-lg mb-1 cursor-pointer hover:text-primary-600 transition-colors ${
+            showFullName ? '' : 'line-clamp-1'
+          }`}
+          onClick={(e) => {
+            e.stopPropagation()
+            setShowFullName((prev) => !prev)
+          }}
+          title="Clique para ver o nome completo"
+        >
+          {product.name}
+        </h3>
+
         <div className="mt-auto space-y-3">
           <div className="flex items-end justify-between">
             <div>
