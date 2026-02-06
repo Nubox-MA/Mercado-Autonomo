@@ -66,6 +66,9 @@ export default function ProductsPage() {
   const [showDeleteAllModal, setShowDeleteAllModal] = useState(false)
   const [showDeleteAllConfirmModal, setShowDeleteAllConfirmModal] = useState(false)
   const [isDeletingAll, setIsDeletingAll] = useState(false)
+  const [catalogItemsPerPage, setCatalogItemsPerPage] = useState<'20' | '30' | '40'>('40')
+  const [showItemsPerPageModal, setShowItemsPerPageModal] = useState(false)
+  const [tempCatalogItemsPerPage, setTempCatalogItemsPerPage] = useState<'20' | '30' | '40'>('40')
 
   const [formData, setFormData] = useState({
     name: '',
@@ -83,7 +86,21 @@ export default function ProductsPage() {
     fetchProducts()
     fetchCategories()
     fetchCondominiums()
+    fetchCatalogItemsPerPage()
   }, [])
+
+  const fetchCatalogItemsPerPage = async () => {
+    try {
+      const response = await axios.get('/api/admin/settings')
+      const value = response.data?.catalogItemsPerPage
+      if (value === '20' || value === '30' || value === '40') {
+        setCatalogItemsPerPage(value)
+        setTempCatalogItemsPerPage(value)
+      }
+    } catch (error) {
+      console.error('Erro ao buscar configuração de produtos por página do catálogo:', error)
+    }
+  }
 
   const fetchCondominiums = async () => {
     try {
@@ -318,6 +335,23 @@ export default function ProductsPage() {
     }
   }
 
+  const handleChangeCatalogItemsPerPage = async (value: '20' | '30' | '40') => {
+    try {
+      setCatalogItemsPerPage(value)
+      await axios.post(
+        '/api/admin/settings',
+        { key: 'catalogItemsPerPage', value },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      )
+      toast.success('Quantidade de produtos por página atualizada!')
+    } catch (error: any) {
+      console.error('Erro ao atualizar configuração de produtos por página:', error)
+      toast.error(error.response?.data?.error || 'Erro ao salvar configuração')
+    }
+  }
+
   const handleEdit = async (product: Product) => {
     setEditingProduct(product)
     setFormData({
@@ -528,6 +562,19 @@ export default function ProductsPage() {
         <div className="flex items-center justify-between flex-wrap gap-4">
         <h1 className="text-3xl font-bold">Produtos</h1>
           <div className="flex items-center gap-3 flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                setTempCatalogItemsPerPage(catalogItemsPerPage)
+                setShowItemsPerPageModal(true)
+              }}
+              className="px-4 py-2 rounded-full text-sm font-semibold border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 flex items-center gap-2"
+            >
+              Produtos por página no catálogo:
+              <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-primary-50 text-primary-700 text-xs font-bold">
+                {catalogItemsPerPage}
+              </span>
+            </button>
           <button
               onClick={() => setShowDeleteAllModal(true)}
               className="btn-secondary text-red-600 border-red-200 hover:bg-red-50 flex items-center gap-2 h-12"
@@ -708,6 +755,43 @@ export default function ProductsPage() {
           </table>
         </div>
       )}
+
+      {/* Modal de configuração de produtos por página */}
+      <ConfirmModal
+        isOpen={showItemsPerPageModal}
+        onClose={() => setShowItemsPerPageModal(false)}
+        onConfirm={async () => {
+          await handleChangeCatalogItemsPerPage(tempCatalogItemsPerPage)
+          setShowItemsPerPageModal(false)
+        }}
+        title="Produtos por página no catálogo"
+        message={
+          <div className="space-y-4">
+            <p className="text-sm">
+              Escolha quantos produtos serão exibidos por página no catálogo do cliente.
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              {(['20', '30', '40'] as Array<'20' | '30' | '40'>).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setTempCatalogItemsPerPage(value)}
+                  className={`px-4 py-2 rounded-full text-sm font-semibold border transition ${
+                    tempCatalogItemsPerPage === value
+                      ? 'bg-primary-600 text-white border-primary-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {value} por página
+                </button>
+              ))}
+            </div>
+          </div>
+        }
+        confirmText="Salvar"
+        cancelText="Fechar"
+        type="info"
+      />
 
       {/* Modal de Confirmação 1 - Apagar Todos */}
       <ConfirmModal

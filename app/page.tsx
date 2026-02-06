@@ -51,11 +51,13 @@ export default function Home() {
   const router = useRouter()
   const [showClearFavoritesModal, setShowClearFavoritesModal] = useState(false)
   const [showClearCartModal, setShowClearCartModal] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
+  const [itemsPerPage, setItemsPerPage] = useState(40)
   
   // New Filter States
   const [sortBy, setSortBy] = useState('name')
@@ -110,6 +112,28 @@ export default function Home() {
       fetchProducts()
     }
   }, [selectedCondominium, selectedCategory, searchQuery, sortBy, isPromotion, isNew])
+
+  // Sempre que filtros ou busca mudarem, voltar para a primeira página
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [selectedCategory, searchQuery, sortBy, isPromotion, isNew, selectedCondominium, itemsPerPage])
+
+  // Buscar configuração de itens por página (20, 30, 40) do painel admin
+  useEffect(() => {
+    const fetchItemsPerPageSetting = async () => {
+      try {
+        const response = await axios.get('/api/admin/settings')
+        const value = response.data?.catalogItemsPerPage
+        const parsed = parseInt(value, 10)
+        if ([20, 30, 40].includes(parsed)) {
+          setItemsPerPage(parsed)
+        }
+      } catch (error) {
+        console.error('Erro ao buscar configuração de itens por página:', error)
+      }
+    }
+    fetchItemsPerPageSetting()
+  }, [])
 
   const fetchCategories = async () => {
     try {
@@ -166,6 +190,176 @@ export default function Home() {
 
   const getItemPrice = (item: any) => {
     return item.isPromotion && item.promoPrice ? item.promoPrice : item.price
+  }
+
+  // Paginação no catálogo (somente front-end)
+  const ITEMS_PER_PAGE = itemsPerPage
+  const totalPages = Math.max(1, Math.ceil(products.length / ITEMS_PER_PAGE))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE
+  const endIndex = startIndex + ITEMS_PER_PAGE
+  const paginatedProducts = products.slice(startIndex, endIndex)
+
+  const handlePageChange = (page: number) => {
+    const targetPage = Math.min(Math.max(1, page), totalPages)
+    setCurrentPage((prev) => {
+      if (prev === targetPage) return prev
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+      return targetPage
+    })
+  }
+
+  const renderPagination = () => {
+    if (totalPages <= 1) return null
+
+    // Se poucas páginas, mostrar todas
+    if (totalPages <= 7) {
+      const allPages = Array.from({ length: totalPages }, (_, index) => index + 1)
+
+      return (
+        <div className="flex flex-col items-center gap-3 mt-6">
+          <div className="flex items-center gap-2 flex-wrap justify-center">
+            <button
+              onClick={() => handlePageChange(safeCurrentPage - 1)}
+              disabled={safeCurrentPage === 1}
+              className={`px-4 py-2 rounded-full text-sm font-medium border ${
+                safeCurrentPage === 1
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Anterior
+            </button>
+
+            {allPages.map((page) => (
+              <button
+                key={page}
+                onClick={() => handlePageChange(page)}
+                className={`w-9 h-9 rounded-full text-sm font-semibold border transition ${
+                  page === safeCurrentPage
+                    ? 'bg-primary-600 text-white border-primary-600'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              onClick={() => handlePageChange(safeCurrentPage + 1)}
+              disabled={safeCurrentPage === totalPages}
+              className={`px-4 py-2 rounded-full text-sm font-medium border ${
+                safeCurrentPage === totalPages
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Próxima
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    // Quando há muitas páginas, mostrar janela limitada com reticências
+    const pages: (number | 'left-ellipsis' | 'right-ellipsis')[] = []
+
+    const firstPage = 1
+    const lastPage = totalPages
+
+    // Sempre mostrar primeira página
+    pages.push(firstPage)
+
+    let start: number
+    let end: number
+
+    if (safeCurrentPage <= 3) {
+      // Nas primeiras páginas: 1, 2, 3, 4, ... , last
+      start = 2
+      end = Math.min(4, lastPage - 1)
+    } else if (safeCurrentPage >= lastPage - 2) {
+      // Nas últimas páginas: 1, ..., last-3, last-2, last-1, last
+      start = Math.max(lastPage - 3, 2)
+      end = lastPage - 1
+    } else {
+      // Meio: 1, ..., current-1, current, current+1, current+2, ..., last
+      start = safeCurrentPage - 1
+      end = Math.min(safeCurrentPage + 2, lastPage - 1)
+    }
+
+    if (start > 2) {
+      pages.push('left-ellipsis')
+    }
+
+    for (let page = start; page <= end; page++) {
+      pages.push(page)
+    }
+
+    if (end < lastPage - 1) {
+      pages.push('right-ellipsis')
+    }
+
+    // Sempre mostrar última página
+    pages.push(lastPage)
+
+    return (
+      <div className="flex flex-col items-center gap-3 mt-6">
+        <div className="flex items-center gap-2 flex-wrap justify-center">
+          <button
+            onClick={() => handlePageChange(safeCurrentPage - 1)}
+            disabled={safeCurrentPage === 1}
+            className={`px-4 py-2 rounded-full text-sm font-medium border ${
+              safeCurrentPage === 1
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Anterior
+          </button>
+
+          {pages.map((page, index) => {
+            if (page === 'left-ellipsis' || page === 'right-ellipsis') {
+              return (
+                <span
+                  key={`ellipsis-${index}`}
+                  className="px-2 text-gray-400 select-none"
+                >
+                  ...
+                </span>
+              )
+            }
+
+            return (
+              <button
+                key={page}
+                onClick={() => handlePageChange(page)}
+                className={`w-9 h-9 rounded-full text-sm font-semibold border transition ${
+                  page === safeCurrentPage
+                    ? 'bg-primary-600 text-white border-primary-600'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {page}
+              </button>
+            )
+          })}
+
+          <button
+            onClick={() => handlePageChange(safeCurrentPage + 1)}
+            disabled={safeCurrentPage === totalPages}
+            className={`px-4 py-2 rounded-full text-sm font-medium border ${
+              safeCurrentPage === totalPages
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Próxima
+          </button>
+        </div>
+      </div>
+    )
   }
 
   // Renderizar conteúdo baseado na aba ativa
@@ -488,8 +682,9 @@ export default function Home() {
             </button>
           </div>
         ) : viewMode === 'list' ? (
-          <div className="space-y-3">
-            {products.map((product) => (
+          <>
+            <div className="space-y-3">
+              {paginatedProducts.map((product) => (
               <div key={product.id} className="bg-white rounded-xl border p-4 hover:shadow-md transition">
                 <div className="flex gap-4">
                   <div className="relative w-20 h-20 sm:w-24 sm:h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
@@ -499,6 +694,7 @@ export default function Home() {
                         alt={product.name}
                         fill
                         sizes="96px"
+                        loading="lazy"
                         className="object-contain"
                       />
                     ) : (
@@ -556,20 +752,31 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+
+            {renderPagination()}
+          </>
         ) : viewMode === 'single' ? (
-          <div className="grid grid-cols-1 gap-4 sm:gap-6">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 gap-4 sm:gap-6">
+              {paginatedProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+
+            {renderPagination()}
+          </>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+              {paginatedProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+
+            {renderPagination()}
+          </>
         )}
       </>
     )

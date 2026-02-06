@@ -111,6 +111,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             alt={product.name}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            loading="lazy"
             className={`object-contain group-hover:scale-110 transition-transform duration-500 ${
               !isAvailable ? 'opacity-50 grayscale' : ''
             }`}

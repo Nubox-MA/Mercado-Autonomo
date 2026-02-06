@@ -1,6 +1,6 @@
 'use client'
 
-import { Search } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 
 interface SearchBarProps {
@@ -36,8 +36,18 @@ export default function SearchBar({ onSearch, placeholder = 'Buscar produtos...'
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
-        className="input-field pl-10"
+        className="input-field pl-10 pr-10"
       />
+      {query && (
+        <button
+          type="button"
+          onClick={() => setQuery('')}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+          aria-label="Limpar busca"
+        >
+          <X size={18} />
+        </button>
+      )}
     </div>
   )
 }
