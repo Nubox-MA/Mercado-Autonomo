@@ -61,7 +61,7 @@ export default function Home() {
   
   // New Filter States
   const [sortBy, setSortBy] = useState('name')
-  const [isPromotion, setIsPromotion] = useState(false)
+  const [isPromotion, setIsPromotion] = useState(true) // Por padrão, mostrar ofertas
   const [isNew, setIsNew] = useState(false)
   // Inicializar com valor do localStorage ou padrão
   const [viewMode, setViewMode] = useState<'list' | 'single' | 'double'>(() => {

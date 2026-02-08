@@ -47,7 +47,10 @@ export async function GET(req: NextRequest) {
       where.isNew = true
     }
 
-    if (isPromotion) {
+    // NÃO filtrar isPromotion aqui se tiver neighborhoodId
+    // porque o isPromotion real vem de ProductPrice quando há condomínio
+    // Vamos filtrar depois de mapear os preços do condomínio
+    if (isPromotion && !neighborhoodId) {
       where.isPromotion = true
     }
 
@@ -149,6 +152,9 @@ export async function GET(req: NextRequest) {
         // Filtrar por preço se necessário
         if (minPrice !== undefined && finalPrice < minPrice) return null
         if (maxPrice !== undefined && finalPrice > maxPrice) return null
+
+        // Filtrar por isPromotion DEPOIS de mapear os preços do condomínio
+        if (isPromotion && !finalIsPromotion) return null
 
         // Criar objeto de retorno sem productPrices
         const productCopy: any = { ...product }

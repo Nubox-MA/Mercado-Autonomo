@@ -63,16 +63,16 @@ export default function Navbar() {
             {!pathname?.startsWith('/admin') && pathname !== '/select-condominium' && pathname !== '/login' ? (
               <button
                 onClick={() => handleTabChange('home')}
-                className={`text-lg sm:text-xl font-black tracking-tighter sm:tracking-tight flex-shrink-0 hover:opacity-80 transition ${
+                className={`text-xl sm:text-2xl font-black tracking-tighter sm:tracking-tight flex-shrink-0 hover:opacity-80 transition ${
                   activeTab === 'home' ? 'opacity-100' : 'opacity-90'
                 }`}
                 title="Início"
               >
-                Mercado<span className="text-primary-200">Autônomo</span>
+                NüBox
               </button>
             ) : (
-              <Link href="/" className="text-lg sm:text-xl font-black tracking-tighter sm:tracking-tight flex-shrink-0">
-                Mercado<span className="text-primary-200">Autônomo</span>
+              <Link href="/" className="text-xl sm:text-2xl font-black tracking-tighter sm:tracking-tight flex-shrink-0">
+                NüBox
               </Link>
             )}
 

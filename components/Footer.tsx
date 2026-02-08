@@ -69,7 +69,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-12 pt-8 border-t text-center text-gray-400 text-sm">
-          <p>&copy; {new Date().getFullYear()} Mercado Autônomo - Todos os direitos reservados.</p>
+          <p>&copy; {new Date().getFullYear()} NüBox - Todos os direitos reservados.</p>
         </div>
       </div>
     </footer>

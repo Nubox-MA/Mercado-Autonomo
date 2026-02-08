@@ -8,8 +8,8 @@ import FloatingCart from '@/components/FloatingCart'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Mercado Autônomo - Catálogo Digital',
-  description: 'Consulte produtos disponíveis no mercado autônomo do condomínio',
+  title: 'NüBox - Catálogo Digital',
+  description: 'Consulte produtos disponíveis no NüBox do condomínio',
   icons: {
     icon: '/favicon.svg',
   },

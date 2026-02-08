@@ -1,7 +1,7 @@
 {
   "name": "mercado-autonomo",
   "version": "1.0.0",
-  "description": "Catálogo Digital para Mercado Autônomo",
+  "description": "Catálogo Digital para NüBox",
   "scripts": {
     "dev": "next dev",
     "dev:network": "next dev -H 0.0.0.0",
