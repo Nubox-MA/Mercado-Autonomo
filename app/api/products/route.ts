@@ -130,18 +130,34 @@ export async function GET(req: NextRequest) {
           return null
         }
 
+        // ORIGEM DOS VALORES DO PRODUTO:
+        // 
+        // IMPORTANTE: O preço padrão (product.price) é APENAS um valor inicial/referência usado pelo admin
+        // ao criar o produto. Ele NÃO é exibido para o cliente.
+        //
+        // REGRA: Quando um cliente seleciona um condomínio, ele SÓ vê produtos que têm preço cadastrado
+        // na tabela ProductPrice para aquele condomínio específico. Cada condomínio pode ter preço diferente.
+        //
+        // Exemplo:
+        // - Produto "Arroz 5kg" tem preço padrão R$ 20,00 (apenas referência)
+        // - Morada do Verde: R$ 18,50 (na tabela ProductPrice)
+        // - Jardim Primavera: R$ 19,00 (na tabela ProductPrice)
+        // O cliente do "Morada do Verde" vê R$ 18,50, não R$ 20,00
+        
+        // Inicializar com valores padrão (só serão usados se NÃO houver condomínio selecionado)
         let finalPrice = product.price
         let finalPromoPrice = product.promoPrice
         let finalIsPromotion = product.isPromotion
         let finalStock = product.stock
 
-        // Se houver preço específico para o condomínio, usar ele
+        // Se houver condomínio selecionado, OBRIGATORIAMENTE usar preço da tabela ProductPrice
+        // (o produto só aparece se tiver preço específico para aquele condomínio)
         if (neighborhoodId && 'productPrices' in product) {
           const prices = (product as any).productPrices
           if (prices && Array.isArray(prices) && prices.length > 0) {
             const condominiumPrice = prices[0]
             if (condominiumPrice) {
-              finalPrice = condominiumPrice.price
+              finalPrice = condominiumPrice.price // Preço específico do condomínio (OBRIGATÓRIO)
               finalPromoPrice = condominiumPrice.promoPrice ?? null
               finalIsPromotion = condominiumPrice.isPromotion
               finalStock = condominiumPrice.stock

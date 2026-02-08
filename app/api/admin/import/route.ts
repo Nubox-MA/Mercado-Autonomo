@@ -4,6 +4,9 @@ import { prisma } from '@/lib/prisma'
 // @ts-ignore - xlsx não tem tipos perfeitos
 import * as XLSX from 'xlsx'
 
+// Configurar timeout maior para importação (60 segundos no Vercel Pro, 10 segundos no plano gratuito)
+export const maxDuration = 60
+
 // Helper para buscar ou criar categoria "Sem Categoria"
 async function getOrCreateUncategorizedCategory() {
   let uncategorizedCategory = await prisma.category.findUnique({
@@ -103,6 +106,31 @@ export async function POST(req: NextRequest) {
     const productNameMap = new Map<string, any>()
     existingProducts.forEach((p) => {
       productNameMap.set(p.name.toLowerCase().trim(), p)
+    })
+
+    // Buscar todas as categorias de uma vez para evitar queries individuais
+    const allCategories = await prisma.category.findMany({
+      select: { id: true, name: true },
+    })
+    const categoryMap = new Map<string, any>()
+    allCategories.forEach((c) => {
+      categoryMap.set(c.name.toLowerCase().trim(), c)
+    })
+
+    // Buscar todos os preços existentes de uma vez (para evitar queries individuais depois)
+    const allExistingPrices = await prisma.productPrice.findMany({
+      where: {
+        neighborhoodId: { in: condominiums.map((c) => c.id) },
+      },
+      select: {
+        productId: true,
+        neighborhoodId: true,
+      },
+    })
+    // Criar um Set de chaves "productId-neighborhoodId" para busca rápida
+    const existingPriceKeys = new Set<string>()
+    allExistingPrices.forEach((p) => {
+      existingPriceKeys.add(`${p.productId}-${p.neighborhoodId}`)
     })
 
     // Sets para rastrear produtos únicos (evitar contar duplicatas)
@@ -220,16 +248,17 @@ export async function POST(req: NextRequest) {
         // Normalizar nome para comparação
         const normalizedName = productName.toLowerCase().trim()
 
-        // Buscar categoria
-        let category = await prisma.category.findUnique({
-          where: { name: categoria },
-        })
+        // Buscar categoria no mapa (muito mais rápido que query individual)
+        const normalizedCategoryName = categoria.toLowerCase().trim()
+        let category = categoryMap.get(normalizedCategoryName)
 
         if (!category) {
           // Se não tiver categoria definida, usar "Sem Categoria"
           if (!categoria || categoria.trim() === '') {
             if (confirm) {
               category = await getOrCreateUncategorizedCategory()
+              // Adicionar ao mapa para próximas buscas
+              categoryMap.set('sem categoria', category)
             } else {
               category = { id: 'temp', name: 'Sem Categoria' } as any
             }
@@ -244,6 +273,8 @@ export async function POST(req: NextRequest) {
               category = await prisma.category.create({
                 data: { name: categoria },
               })
+              // Adicionar ao mapa para próximas buscas
+              categoryMap.set(normalizedCategoryName, category)
             } else {
               // Para preview, usar categoria temporária
               category = { id: 'temp', name: categoria } as any
@@ -294,12 +325,19 @@ export async function POST(req: NextRequest) {
               if (!categoria || categoria.trim() === '') {
                 // Se não tiver categoria, usar "Sem Categoria"
                 category = await getOrCreateUncategorizedCategory()
+                categoryMap.set('sem categoria', category)
               } else {
-                category = await prisma.category.upsert({
-                  where: { name: categoria },
-                  update: {},
-                  create: { name: categoria },
-                })
+                // Verificar novamente no mapa antes de criar
+                const normalizedCatName = categoria.toLowerCase().trim()
+                category = categoryMap.get(normalizedCatName)
+                if (!category) {
+                  category = await prisma.category.upsert({
+                    where: { name: categoria },
+                    update: {},
+                    create: { name: categoria },
+                  })
+                  categoryMap.set(normalizedCatName, category)
+                }
               }
             }
 
@@ -307,37 +345,7 @@ export async function POST(req: NextRequest) {
             const normalizedProductName = productName.toLowerCase().trim()
             let product = productNameMap.get(normalizedProductName)
             
-            // Se não encontrou no mapa, buscar no banco (pode ser produto novo ou nome com diferença de case)
-            if (!product) {
-              // Buscar por nome exato (case-sensitive primeiro)
-              product = await prisma.product.findFirst({
-                where: {
-                  name: productName,
-                },
-              })
-              
-              // Se não encontrou, buscar todos os produtos e comparar case-insensitive
-              // (mais eficiente que buscar por categoria, pois pode haver produtos com mesmo nome em categorias diferentes)
-              if (!product) {
-                const allProducts = await prisma.product.findMany({
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                })
-                const found = allProducts.find(
-                  (p) => p.name.toLowerCase().trim() === normalizedProductName
-                )
-                if (found) {
-                  product = found
-                  // Adicionar ao mapa para próximas buscas
-                  productNameMap.set(normalizedProductName, product)
-                }
-              } else {
-                // Adicionar ao mapa se encontrou por busca exata
-                productNameMap.set(normalizedProductName, product)
-              }
-            }
+            // Se não encontrou no mapa, o produto é novo (não fazer mais queries)
 
             if (!product) {
               // Criar novo produto
@@ -394,18 +402,14 @@ export async function POST(req: NextRequest) {
               }
             }
 
-            // Verificar quais condomínios já têm preço para este produto
-            const existingPrices = await prisma.productPrice.findMany({
-              where: {
-                productId: product.id,
-                neighborhoodId: { in: condominiums.map((c) => c.id) },
-              },
-              select: {
-                neighborhoodId: true,
-              },
+            // Verificar quais condomínios já têm preço para este produto (usar o mapa criado no início)
+            const existingNeighborhoodIds = new Set<string>()
+            condominiums.forEach((cond) => {
+              const priceKey = `${product.id}-${cond.id}`
+              if (existingPriceKeys.has(priceKey)) {
+                existingNeighborhoodIds.add(cond.id)
+              }
             })
-
-            const existingNeighborhoodIds = new Set(existingPrices.map((p) => p.neighborhoodId))
 
             // Criar preços apenas para condomínios selecionados que ainda não têm preço
             const newPrices = condominiums
@@ -423,6 +427,10 @@ export async function POST(req: NextRequest) {
               try {
                 await prisma.productPrice.createMany({
                   data: newPrices,
+                })
+                // Atualizar o mapa de preços existentes para evitar duplicatas
+                newPrices.forEach((np) => {
+                  existingPriceKeys.add(`${np.productId}-${np.neighborhoodId}`)
                 })
               } catch (priceError: any) {
                 console.error(`Erro ao criar preços na linha ${i + 2}:`, priceError)

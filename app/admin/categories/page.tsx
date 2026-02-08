@@ -420,12 +420,6 @@ export default function CategoriesPage() {
                               />
                               <div className="flex-1">
                                 <p className="text-sm font-medium text-gray-900">{product.name}</p>
-                                <p className="text-xs text-gray-500">
-                                  {new Intl.NumberFormat('pt-BR', {
-                                    style: 'currency',
-                                    currency: 'BRL',
-                                  }).format(product.price)}
-                                </p>
                               </div>
                             </label>
                           ))}
@@ -595,12 +589,6 @@ export default function CategoriesPage() {
                           <div className="flex-1">
                             <p className="text-sm font-medium text-gray-900">{product.name}</p>
                             <div className="flex items-center gap-2 mt-1">
-                              <p className="text-xs text-gray-500">
-                                {new Intl.NumberFormat('pt-BR', {
-                                  style: 'currency',
-                                  currency: 'BRL',
-                                }).format(product.price)}
-                              </p>
                               {productCategory && (
                                 <span className="text-xs text-gray-400">
                                   • {productCategory.name}
@@ -689,12 +677,6 @@ export default function CategoriesPage() {
                             <div className="flex-1">
                               <p className="text-sm font-medium text-gray-900">{product.name}</p>
                               <div className="flex items-center gap-2 mt-1">
-                                <p className="text-xs text-gray-500">
-                                  {new Intl.NumberFormat('pt-BR', {
-                                    style: 'currency',
-                                    currency: 'BRL',
-                                  }).format(product.price)}
-                                </p>
                                 {productCategory && (
                                   <span className="text-xs text-gray-400">
                                     • Categoria atual: {productCategory.name}
@@ -775,23 +757,8 @@ export default function CategoriesPage() {
               <div className="space-y-3">
                 {selectedCategory.products?.map((product) => (
                   <div key={product.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="font-semibold">{product.name}</h3>
-                        <p className="text-sm text-gray-600 mt-1">
-                          Estoque: <span className={`font-medium ${product.stock < 10 ? 'text-red-600' : 'text-green-600'}`}>
-                            {product.stock} unid.
-                          </span>
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-primary-600">
-                          {new Intl.NumberFormat('pt-BR', {
-                            style: 'currency',
-                            currency: 'BRL',
-                          }).format(product.price)}
-                        </p>
-                      </div>
+                    <div>
+                      <h3 className="font-semibold">{product.name}</h3>
                     </div>
                   </div>
                 ))}
