@@ -71,10 +71,10 @@ export default function SelectCondominiumPage() {
             <MapPin className="text-white" size={40} />
           </div>
           <h1 className="text-3xl font-black text-primary-600 tracking-tight mb-2">
-            Escolha seu Condomínio
+            Escolha seu local
           </h1>
           <p className="text-gray-600 font-medium">
-            Selecione o mercado do seu condomínio para ver os produtos disponíveis
+            Selecione o mercado para ver os produtos disponíveis
           </p>
         </div>
 

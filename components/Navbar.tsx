@@ -69,22 +69,22 @@ export default function Navbar() {
                 title="Início"
               >
                 <Image
-                  src="/logo-nubox.PNG"
+                  src="/logo-nubox.png"
                   alt="NüBox - Mercado Autônomo"
-                  width={280}
-                  height={280}
-                  className="h-[250px] sm:h-[280px] w-auto"
+                  width={90}
+                  height={90}
+                  className="h-[80px] sm:h-[90px] w-auto"
                   priority
                 />
               </button>
             ) : (
               <Link href="/" className="flex-shrink-0">
                 <Image
-                  src="/logo-nubox.PNG"
+                  src="/logo-nubox.png"
                   alt="NüBox - Mercado Autônomo"
-                  width={280}
-                  height={280}
-                  className="h-[250px] sm:h-[280px] w-auto"
+                  width={90}
+                  height={90}
+                  className="h-[80px] sm:h-[90px] w-auto"
                   priority
                 />
               </Link>

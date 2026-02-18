@@ -42,8 +42,28 @@ next-env.d.ts
 prisma/dev.db
 prisma/prisma/dev.db
 
+# arquivos grandes
+*.rar
+*.zip
+*.pdf
+*.xlsx
+*.jpg
+*.jpeg
+*.PNG
+!public/logo-nubox.png
+
 # database
 *.db
 *.db-journal
 prisma/dev.db
 prisma/prisma/dev.db
+
+# arquivos grandes
+*.rar
+*.zip
+*.pdf
+*.xlsx
+*.jpg
+*.jpeg
+*.PNG
+!public/logo-nubox.png
