@@ -69,7 +69,7 @@ export default function Navbar() {
                 title="Início"
               >
                 <Image
-                  src="/logo-nubox.png"
+                  src="/logo-nubox.PNG"
                   alt="NüBox - Mercado Autônomo"
                   width={90}
                   height={90}
@@ -80,7 +80,7 @@ export default function Navbar() {
             ) : (
               <Link href="/" className="flex-shrink-0">
                 <Image
-                  src="/logo-nubox.png"
+                  src="/logo-nubox.PNG"
                   alt="NüBox - Mercado Autônomo"
                   width={90}
                   height={90}
