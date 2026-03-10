@@ -17,15 +17,17 @@ export default function InstallPWAButton() {
   const isSafari = typeof window !== 'undefined' && /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent)
 
   useEffect(() => {
-    // Verificar se já está instalado
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      return // Já está instalado, não mostrar prompt
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+
+    // Se o app NÃO está em modo standalone mas o localStorage diz que está instalado,
+    // limpamos a flag para poder mostrar o prompt novamente (caso o usuário tenha apagado o atalho)
+    const installed = localStorage.getItem('pwa-installed')
+    if (!isStandalone && installed === 'true') {
+      localStorage.removeItem('pwa-installed')
     }
 
-    // Verificar se já foi instalado anteriormente
-    const installed = localStorage.getItem('pwa-installed')
-    if (installed === 'true') {
-      setShowInstallPrompt(false)
+    // Se já está em standalone, não mostrar prompt
+    if (isStandalone) {
       return
     }
 
