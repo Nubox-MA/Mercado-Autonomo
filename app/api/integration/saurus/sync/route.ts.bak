@@ -1,0 +1,73 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { authMiddleware } from '@/lib/middleware'
+
+/**
+ * Sincronização manual/polling com sistema Saurus
+ * Consulta o estoque atualizado no sistema Saurus e atualiza no NüBox
+ * 
+ * Query params:
+ * - productCode: (opcional) Sincronizar apenas um produto específico
+ * - storeId: (opcional) Sincronizar apenas produtos de uma loja específica
+ */
+export async function POST(req: NextRequest) {
+  const auth = await authMiddleware(req, true)
+  if (!auth.authorized) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  }
+
+  try {
+    const { searchParams } = new URL(req.url)
+    const productCode = searchParams.get('productCode')
+    const storeId = searchParams.get('storeId')
+
+    // TODO: Implementar chamada ao Web Service Saurus
+    // Por enquanto, retorna instruções
+    return NextResponse.json({
+      message: 'Sincronização ainda não implementada',
+      instructions: [
+        '1. Obter credenciais da Saurus (xSenha)',
+        '2. Implementar chamada ao método retCadastros ou método de consulta de estoque',
+        '3. Processar XML retornado',
+        '4. Atualizar produtos no banco de dados',
+      ],
+      note: 'Esta funcionalidade requer integração com o Web Service SOAP da Saurus',
+    })
+
+    // Exemplo de como seria a implementação:
+    /*
+    const saurusUrl = process.env.SAURUS_WS_URL
+    const saurusPassword = process.env.SAURUS_WS_PASSWORD
+
+    // Chamar Web Service Saurus
+    const response = await fetch(saurusUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/xml; charset=utf-8',
+        'SOAPAction': 'http://saurus.net.br/retCadastros',
+      },
+      body: `<?xml version="1.0" encoding="utf-8"?>
+        <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+          <soap:Body>
+            <retCadastros xmlns="http://saurus.net.br/">
+              <xBytesParametros>${compressedXml}</xBytesParametros>
+              <xSenha>${saurusPassword}</xSenha>
+            </retCadastros>
+          </soap:Body>
+        </soap:Envelope>`,
+    })
+
+    // Processar resposta XML
+    // Atualizar produtos no banco
+    */
+  } catch (error: any) {
+    console.error('Erro ao sincronizar com Saurus:', error)
+    return NextResponse.json(
+      {
+        error: 'Erro ao sincronizar',
+        message: error.message,
+      },
+      { status: 500 }
+    )
+  }
+}

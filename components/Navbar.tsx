@@ -71,9 +71,9 @@ export default function Navbar() {
                 <Image
                   src="/logo-nubox.PNG"
                   alt="NüBox - Mercado Autônomo"
-                  width={150}
-                  height={150}
-                  className="h-[100px] sm:h-[140px] w-auto"
+                  width={280}
+                  height={280}
+                  className="h-[250px] sm:h-[280px] w-auto"
                   priority
                 />
               </button>
@@ -82,9 +82,9 @@ export default function Navbar() {
                 <Image
                   src="/logo-nubox.PNG"
                   alt="NüBox - Mercado Autônomo"
-                  width={150}
-                  height={150}
-                  className="h-[100px] sm:h-[140px] w-auto"
+                  width={280}
+                  height={280}
+                  className="h-[250px] sm:h-[280px] w-auto"
                   priority
                 />
               </Link>
@@ -226,8 +226,8 @@ export default function Navbar() {
           setShowChangeCondominiumModal(false)
           router.push('/select-condominium')
         }}
-        title="Trocar Condomínio?"
-        message={selectedCondominium ? `Você selecionou o "${selectedCondominium.name}". Tem certeza que deseja trocar de condomínio?` : 'Tem certeza que deseja trocar de condomínio?'}
+        title="Trocar Local?"
+        message={selectedCondominium ? `Você selecionou o "${selectedCondominium.name}". Tem certeza que deseja trocar de local?` : 'Tem certeza que deseja trocar de local?'}
         confirmText="Sim, Trocar"
         cancelText="Cancelar"
         type="warning"

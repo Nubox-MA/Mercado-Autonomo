@@ -1,0 +1,106 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+import { authMiddleware } from '@/lib/middleware'
+
+/**
+ * Mapear um produto do NüBox com código do sistema Saurus
+ * 
+ * Body:
+ * {
+ *   "productId": "uuid-do-produto-nubox",
+ *   "saurusCode": "12345",  // Código do produto no sistema Saurus
+ *   "storeId": "LOJA1"     // (opcional) ID da loja no Saurus
+ * }
+ */
+export async function POST(req: NextRequest) {
+  const auth = await authMiddleware(req, true)
+  if (!auth.authorized) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  }
+
+  try {
+    const body = await req.json()
+    const { productId, saurusCode, storeId } = body
+
+    if (!productId || !saurusCode) {
+      return NextResponse.json(
+        { error: 'productId e saurusCode são obrigatórios' },
+        { status: 400 }
+      )
+    }
+
+    // Verificar se produto existe
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+    })
+
+    if (!product) {
+      return NextResponse.json(
+        { error: 'Produto não encontrado' },
+        { status: 404 }
+      )
+    }
+
+    // Verificar se já existe outro produto com esse código
+    const existingProduct = await prisma.product.findFirst({
+      where: {
+        externalId: String(saurusCode),
+        externalSystem: 'SAURUS',
+        id: { not: productId },
+      },
+    })
+
+    if (existingProduct) {
+      return NextResponse.json(
+        {
+          error: 'Código já está mapeado',
+          message: `O código ${saurusCode} já está mapeado com o produto "${existingProduct.name}"`,
+        },
+        { status: 400 }
+      )
+    }
+
+    // Atualizar produto com código externo
+    const updatedProduct = await prisma.product.update({
+      where: { id: productId },
+      data: {
+        externalId: String(saurusCode),
+        externalSystem: 'SAURUS',
+      },
+    })
+
+    // Se houver storeId, mapear condomínio também
+    if (storeId) {
+      const neighborhood = await prisma.neighborhood.findFirst({
+        where: {
+          externalId: storeId,
+          externalSystem: 'SAURUS',
+        },
+      })
+
+      if (!neighborhood) {
+        console.warn(`Condomínio não encontrado com código externo: ${storeId}`)
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Produto mapeado com sucesso',
+      product: {
+        id: updatedProduct.id,
+        name: updatedProduct.name,
+        externalId: updatedProduct.externalId,
+        externalSystem: updatedProduct.externalSystem,
+      },
+    })
+  } catch (error: any) {
+    console.error('Erro ao mapear produto:', error)
+    return NextResponse.json(
+      {
+        error: 'Erro ao mapear produto',
+        message: error.message,
+      },
+      { status: 500 }
+    )
+  }
+}

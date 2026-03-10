@@ -57,7 +57,7 @@ export default function NeighborhoodsPage() {
 
     // Validação do nome
     if (!formData.name || formData.name.trim() === '') {
-      toast.error('O nome do condomínio é obrigatório')
+      toast.error('O nome do local é obrigatório')
       return
     }
 
@@ -181,8 +181,8 @@ export default function NeighborhoodsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Condomínios</h1>
-          <p className="text-gray-500">Gerencie os condomínios, edite nomes e adicione fotos</p>
+          <h1 className="text-3xl font-bold">Locais</h1>
+          <p className="text-gray-500">Gerencie os locais, edite nomes e adicione fotos</p>
         </div>
         <button
           onClick={() => {
@@ -192,7 +192,7 @@ export default function NeighborhoodsPage() {
           className="btn-primary flex items-center gap-2"
         >
           <Plus size={20} />
-          Novo Condomínio
+          Novo Local
         </button>
       </div>
 
@@ -252,7 +252,7 @@ export default function NeighborhoodsPage() {
           {neighborhoods.length === 0 && (
             <div className="col-span-full text-center py-12 bg-white rounded-2xl border-2 border-dashed border-gray-200">
               <div className="text-4xl mb-4">📍</div>
-              <p className="text-gray-500">Nenhum condomínio cadastrado.</p>
+              <p className="text-gray-500">Nenhum local cadastrado.</p>
               <button
                 onClick={() => setShowModal(true)}
                 className="text-primary-600 font-bold hover:underline mt-2"
@@ -269,8 +269,8 @@ export default function NeighborhoodsPage() {
         isOpen={!!showDeleteModal}
         onClose={() => setShowDeleteModal(null)}
         onConfirm={handleDelete}
-        title="Excluir Condomínio?"
-        message={`Tem certeza que deseja excluir o condomínio "${showDeleteModal?.name}"? Esta ação não pode ser desfeita.`}
+        title="Excluir Local?"
+        message={`Tem certeza que deseja excluir o local "${showDeleteModal?.name}"? Esta ação não pode ser desfeita.`}
         confirmText="Sim, Excluir"
         cancelText="Cancelar"
         type="danger"
@@ -282,13 +282,13 @@ export default function NeighborhoodsPage() {
           <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="p-8">
               <h2 className="text-2xl font-black mb-6">
-                {editingId ? 'Editar Condomínio' : 'Novo Condomínio'}
+                {editingId ? 'Editar Local' : 'Novo Local'}
               </h2>
 
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wider">
-                    Nome do Condomínio *
+                    Nome do Local *
                   </label>
                   <input
                     type="text"

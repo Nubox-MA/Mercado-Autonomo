@@ -4,6 +4,8 @@ import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import { Providers } from './providers'
 import FloatingCart from '@/components/FloatingCart'
+import InstallPWAButton from '@/components/InstallPWAButton'
+import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -12,6 +14,14 @@ export const metadata: Metadata = {
   description: 'Consulte produtos disponíveis no NüBox do condomínio',
   icons: {
     icon: '/favicon.svg',
+    apple: '/logo-nubox.PNG',
+  },
+  manifest: '/manifest.json',
+  themeColor: '#16a34a',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'NüBox',
   },
 }
 
@@ -26,6 +36,8 @@ export default function RootLayout({
         <Providers>
           {children}
           <FloatingCart />
+          <InstallPWAButton />
+          <ServiceWorkerRegistration />
           <Toaster 
             position="top-right"
             containerStyle={{

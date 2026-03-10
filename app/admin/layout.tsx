@@ -47,7 +47,7 @@ export default function AdminLayout({
     { href: '/admin/products', icon: Package, label: 'Produtos' },
     { href: '/admin/import', icon: FileSpreadsheet, label: 'Importar Excel' },
     { href: '/admin/categories', icon: FolderTree, label: 'Categorias' },
-    { href: '/admin/neighborhoods', icon: MapPin, label: 'Condomínios' },
+    { href: '/admin/neighborhoods', icon: MapPin, label: 'Locais' },
     { href: '/admin/backup', icon: Database, label: 'Backup' },
     { href: '/admin/profile', icon: User, label: 'Meu Perfil' },
   ]

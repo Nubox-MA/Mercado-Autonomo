@@ -1,0 +1,131 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+
+/**
+ * Webhook para receber notificações do sistema Saurus PDV
+ * Quando uma venda acontece no PDV, este endpoint é chamado para atualizar o estoque
+ * 
+ * Payload esperado:
+ * {
+ *   "productCode": "12345",  // Código do produto no sistema Saurus
+ *   "quantity": 2,           // Quantidade vendida
+ *   "newStock": 5,           // Novo estoque após venda (opcional, pode calcular)
+ *   "storeId": "LOJA1",     // ID da loja/condomínio (opcional)
+ *   "timestamp": "2026-02-18T15:30:00Z"
+ * }
+ */
+export async function POST(req: NextRequest) {
+  try {
+    // Validar secret key (se configurado)
+    const webhookSecret = process.env.SAURUS_WEBHOOK_SECRET
+    if (webhookSecret) {
+      const authHeader = req.headers.get('authorization')
+      if (authHeader !== `Bearer ${webhookSecret}`) {
+        return NextResponse.json(
+          { error: 'Não autorizado' },
+          { status: 401 }
+        )
+      }
+    }
+
+    const body = await req.json()
+    const { productCode, quantity, newStock, storeId, timestamp } = body
+
+    if (!productCode) {
+      return NextResponse.json(
+        { error: 'productCode é obrigatório' },
+        { status: 400 }
+      )
+    }
+
+    // Buscar produto pelo código externo
+    const product = await prisma.product.findFirst({
+      where: {
+        externalId: String(productCode),
+        externalSystem: 'SAURUS',
+      },
+      include: {
+        productPrices: storeId
+          ? {
+              where: {
+                neighborhood: {
+                  externalId: storeId,
+                  externalSystem: 'SAURUS',
+                },
+              },
+            }
+          : false,
+      },
+    })
+
+    if (!product) {
+      console.warn(`Produto não encontrado com código externo: ${productCode}`)
+      return NextResponse.json(
+        { 
+          error: 'Produto não encontrado',
+          message: `Produto com código ${productCode} não está mapeado no sistema`
+        },
+        { status: 404 }
+      )
+    }
+
+    // Calcular novo estoque
+    let finalStock: number
+    if (newStock !== undefined && newStock !== null) {
+      finalStock = parseInt(String(newStock))
+    } else if (quantity !== undefined && quantity !== null) {
+      finalStock = Math.max(0, product.stock - parseInt(String(quantity)))
+    } else {
+      return NextResponse.json(
+        { error: 'É necessário fornecer newStock ou quantity' },
+        { status: 400 }
+      )
+    }
+
+    // Atualizar estoque usando transação
+    await prisma.$transaction(async (tx) => {
+      // Atualizar estoque padrão do produto
+      await tx.product.update({
+        where: { id: product.id },
+        data: {
+          stock: finalStock,
+          active: finalStock > 0, // Desativar se estoque zerar
+        },
+      })
+
+      // Se houver storeId e preços específicos, atualizar também
+      if (storeId && product.productPrices && product.productPrices.length > 0) {
+        const productPrice = product.productPrices[0]
+        await tx.productPrice.update({
+          where: { id: productPrice.id },
+          data: {
+            stock: finalStock,
+          },
+        })
+      }
+    })
+
+    console.log(`Estoque atualizado: Produto ${product.name} (${productCode}) → ${finalStock} unidades`)
+
+    return NextResponse.json({
+      success: true,
+      message: 'Estoque atualizado com sucesso',
+      product: {
+        id: product.id,
+        name: product.name,
+        code: productCode,
+        newStock: finalStock,
+        active: finalStock > 0,
+      },
+    })
+  } catch (error: any) {
+    console.error('Erro ao processar webhook Saurus:', error)
+    return NextResponse.json(
+      {
+        error: 'Erro ao processar webhook',
+        message: error.message,
+      },
+      { status: 500 }
+    )
+  }
+}

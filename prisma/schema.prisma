@@ -55,6 +55,8 @@ model Product {
   categoryId  String?
   views       Int      @default(0)
   active      Boolean  @default(true)
+  externalId  String? // Código do produto no sistema externo (ex: Saurus)
+  externalSystem String? // Nome do sistema externo (ex: "SAURUS")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -65,6 +67,7 @@ model Product {
 
   @@index([categoryId])
   @@index([active])
+  @@index([externalId, externalSystem]) // Para buscar produtos por código externo
   @@map("products")
 }
 
@@ -122,11 +125,14 @@ model Neighborhood {
   deliveryFee  Float
   active       Boolean  @default(true)
   photoUrl    String?  // Foto da fachada do mercado
+  externalId  String? // ID da loja no sistema externo (ex: Saurus)
+  externalSystem String? // Nome do sistema externo (ex: "SAURUS")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   users        User[]   
   productPrices ProductPrice[]
 
+  @@index([externalId, externalSystem]) // Para buscar condomínio por código externo
   @@map("neighborhoods")
 }
 

@@ -12,6 +12,7 @@ import SearchBar from '@/components/SearchBar'
 import Footer from '@/components/Footer'
 import FavoriteProductCard from '@/components/FavoriteProductCard'
 import ConfirmModal from '@/components/ConfirmModal'
+import FacialRegistrationButton from '@/components/FacialRegistrationButton'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import Image from 'next/image'
@@ -785,6 +786,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       <Navbar />
+      <FacialRegistrationButton />
 
       <div className="container mx-auto px-4 py-8">
         {renderContent()}

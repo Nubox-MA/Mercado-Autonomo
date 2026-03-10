@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import axios from 'axios'
-import { User, Lock, Save, MessageCircle, Eye, EyeOff } from 'lucide-react'
+import { User, Lock, Save, MessageCircle, Eye, EyeOff, UserPlus, Plus, Trash2, Edit, XCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface ProfileData {
@@ -21,6 +21,19 @@ export default function ProfilePage() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  
+  // Configurações do botão de cadastro facial (nova estrutura)
+  interface FacialConfig {
+    neighborhoodId: string
+    url: string
+    enabled: boolean
+  }
+  const [facialConfigs, setFacialConfigs] = useState<FacialConfig[]>([])
+  const [neighborhoods, setNeighborhoods] = useState<Array<{ id: string; name: string }>>([])
+  const [showNewConfigModal, setShowNewConfigModal] = useState(false)
+  const [editingConfigId, setEditingConfigId] = useState<string | null>(null)
+  const [newConfig, setNewConfig] = useState({ neighborhoodId: '', url: '', enabled: true })
+  const [facialSettingsLoading, setFacialSettingsLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     cpf: '',
@@ -50,6 +63,21 @@ export default function ProfilePage() {
         const raw = response.data.whatsapp.replace('55', '')
         setWhatsapp(formatPhoneNumber(raw))
       }
+      
+      // Carregar configurações do botão de cadastro facial (nova estrutura)
+      const facialConfigsJson = response.data.facialRegistrationConfigs || '[]'
+      try {
+        const configs = JSON.parse(facialConfigsJson)
+        setFacialConfigs(Array.isArray(configs) ? configs : [])
+      } catch (e) {
+        setFacialConfigs([])
+      }
+      
+      // Buscar lista de locais
+      const neighborhoodsResponse = await axios.get('/api/admin/neighborhoods', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      setNeighborhoods(neighborhoodsResponse.data || [])
     } catch (error) {
       console.error('Erro ao buscar configurações:', error)
     }
@@ -79,6 +107,130 @@ export default function ProfilePage() {
     } finally {
       setSettingsLoading(false)
     }
+  }
+
+  const handleSaveNewConfig = async () => {
+    if (!newConfig.neighborhoodId || !newConfig.url) {
+      toast.error('Selecione um local e informe o link')
+      return
+    }
+
+    // Se estiver editando
+    if (editingConfigId) {
+      // Se mudou o local, verificar se o novo local já tem configuração
+      if (newConfig.neighborhoodId !== editingConfigId) {
+        if (facialConfigs.some(c => c.neighborhoodId === newConfig.neighborhoodId)) {
+          toast.error('Já existe uma configuração para este local')
+          return
+        }
+      }
+
+      // Remover a configuração antiga e adicionar a nova (pode ter mudado o local)
+      const updatedConfigs = facialConfigs
+        .filter(config => config.neighborhoodId !== editingConfigId)
+        .concat([newConfig])
+      
+      setFacialSettingsLoading(true)
+      try {
+        await axios.post(
+          '/api/admin/settings',
+          { key: 'facialRegistrationConfigs', value: JSON.stringify(updatedConfigs) },
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+        setFacialConfigs(updatedConfigs)
+        setNewConfig({ neighborhoodId: '', url: '', enabled: true })
+        setEditingConfigId(null)
+        setShowNewConfigModal(false)
+        toast.success('Configuração atualizada com sucesso!')
+      } catch (error) {
+        toast.error('Erro ao atualizar configuração')
+      } finally {
+        setFacialSettingsLoading(false)
+      }
+      return
+    }
+
+    // Se for nova configuração, verificar se já existe
+    if (facialConfigs.some(c => c.neighborhoodId === newConfig.neighborhoodId)) {
+      toast.error('Já existe uma configuração para este local')
+      return
+    }
+
+    setFacialSettingsLoading(true)
+    try {
+      const updatedConfigs = [...facialConfigs, newConfig]
+      await axios.post(
+        '/api/admin/settings',
+        { key: 'facialRegistrationConfigs', value: JSON.stringify(updatedConfigs) },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      setFacialConfigs(updatedConfigs)
+      setNewConfig({ neighborhoodId: '', url: '', enabled: true })
+      setShowNewConfigModal(false)
+      toast.success('Configuração criada com sucesso!')
+    } catch (error) {
+      toast.error('Erro ao salvar configuração')
+    } finally {
+      setFacialSettingsLoading(false)
+    }
+  }
+
+  const handleEditConfig = (neighborhoodId: string) => {
+    const config = facialConfigs.find(c => c.neighborhoodId === neighborhoodId)
+    if (config) {
+      setNewConfig({ ...config })
+      setEditingConfigId(neighborhoodId)
+      setShowNewConfigModal(true)
+    }
+  }
+
+  const handleToggleConfig = async (neighborhoodId: string) => {
+    const updatedConfigs = facialConfigs.map(config =>
+      config.neighborhoodId === neighborhoodId
+        ? { ...config, enabled: !config.enabled }
+        : config
+    )
+    
+    setFacialSettingsLoading(true)
+    try {
+      await axios.post(
+        '/api/admin/settings',
+        { key: 'facialRegistrationConfigs', value: JSON.stringify(updatedConfigs) },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      setFacialConfigs(updatedConfigs)
+      toast.success('Configuração atualizada!')
+    } catch (error) {
+      toast.error('Erro ao atualizar configuração')
+    } finally {
+      setFacialSettingsLoading(false)
+    }
+  }
+
+  const handleDeleteConfig = async (neighborhoodId: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta configuração?')) {
+      return
+    }
+
+    const updatedConfigs = facialConfigs.filter(c => c.neighborhoodId !== neighborhoodId)
+    setFacialSettingsLoading(true)
+    try {
+      await axios.post(
+        '/api/admin/settings',
+        { key: 'facialRegistrationConfigs', value: JSON.stringify(updatedConfigs) },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      setFacialConfigs(updatedConfigs)
+      toast.success('Configuração excluída!')
+    } catch (error) {
+      toast.error('Erro ao excluir configuração')
+    } finally {
+      setFacialSettingsLoading(false)
+    }
+  }
+
+  const getNeighborhoodName = (neighborhoodId: string) => {
+    return neighborhoods.find(n => n.id === neighborhoodId)?.name || 'Local não encontrado'
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -346,6 +498,202 @@ export default function ProfilePage() {
               </p>
             </div>
           </form>
+        </div>
+
+        {/* Configurações do Botão de Cadastro Facial */}
+        <div className="card lg:col-span-2">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <UserPlus size={24} className="text-primary-600" />
+              <h2 className="text-xl font-bold">Cadastro Facial</h2>
+            </div>
+            <button
+              onClick={() => setShowNewConfigModal(true)}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus size={20} />
+              Novo Botão
+            </button>
+          </div>
+
+          {/* Cards de Configurações Existentes */}
+          <div className="space-y-4 mb-6">
+            {facialConfigs.length === 0 ? (
+              <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed">
+                <UserPlus size={48} className="text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-500 font-medium">Nenhuma configuração cadastrada</p>
+                <p className="text-sm text-gray-400 mt-1">Clique em &quot;Novo Botão&quot; para criar</p>
+              </div>
+            ) : (
+              facialConfigs.map((config) => {
+                const neighborhood = neighborhoods.find(n => n.id === config.neighborhoodId)
+                return (
+                  <div
+                    key={config.neighborhoodId}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      config.enabled
+                        ? 'border-primary-200 bg-primary-50'
+                        : 'border-gray-200 bg-gray-50 opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="font-bold text-lg">{neighborhood?.name || 'Local não encontrado'}</h3>
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-bold ${
+                              config.enabled
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-gray-200 text-gray-600'
+                            }`}
+                          >
+                            {config.enabled ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 break-all">{config.url}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleEditConfig(config.neighborhoodId)}
+                          disabled={facialSettingsLoading}
+                          className="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+                          title="Editar"
+                        >
+                          <Edit size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleToggleConfig(config.neighborhoodId)}
+                          disabled={facialSettingsLoading}
+                          className={`p-2 rounded-lg transition-colors ${
+                            config.enabled
+                              ? 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                          }`}
+                          title={config.enabled ? 'Desativar' : 'Ativar'}
+                        >
+                          {config.enabled ? (
+                            <XCircle size={18} />
+                          ) : (
+                            <Eye size={18} />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteConfig(config.neighborhoodId)}
+                          disabled={facialSettingsLoading}
+                          className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                          title="Excluir"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          {/* Modal para Criar/Editar Configuração */}
+          {showNewConfigModal && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl p-6">
+                <h3 className="text-xl font-bold mb-4">
+                  {editingConfigId ? 'Editar Botão de Cadastro Facial' : 'Novo Botão de Cadastro Facial'}
+                </h3>
+                
+                <div className="space-y-4">
+                  {/* Seleção de Local */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Selecione o Local *
+                    </label>
+                    <select
+                      value={newConfig.neighborhoodId}
+                      onChange={(e) => setNewConfig({ ...newConfig, neighborhoodId: e.target.value })}
+                      className="input-field w-full"
+                    >
+                      <option value="">Selecione um local</option>
+                      {neighborhoods
+                        .filter(n => {
+                          // Ao editar, mostrar todos os locais (incluindo o atual)
+                          if (editingConfigId) {
+                            return true
+                          }
+                          // Ao criar novo, mostrar apenas locais sem configuração
+                          return !facialConfigs.some(c => c.neighborhoodId === n.id)
+                        })
+                        .map((neighborhood) => (
+                          <option key={neighborhood.id} value={neighborhood.id}>
+                            {neighborhood.name}
+                          </option>
+                        ))}
+                    </select>
+                    {!editingConfigId && facialConfigs.length > 0 && neighborhoods.filter(n => !facialConfigs.some(c => c.neighborhoodId === n.id)).length === 0 && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Todos os locais já possuem configuração
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Link */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Link para Cadastro Facial *
+                    </label>
+                    <input
+                      type="url"
+                      value={newConfig.url}
+                      onChange={(e) => setNewConfig({ ...newConfig, url: e.target.value })}
+                      placeholder="https://exemplo.com/cadastro-facial"
+                      className="input-field w-full"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      * Link fornecido pelo desenvolvedor da fechadura eletrônica
+                    </p>
+                  </div>
+
+                  {/* Habilitar */}
+                  <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setNewConfig({ ...newConfig, enabled: !newConfig.enabled })}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        newConfig.enabled ? 'bg-primary-600' : 'bg-gray-300'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform ${
+                        newConfig.enabled ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                    <label className="text-sm font-medium cursor-pointer" onClick={() => setNewConfig({ ...newConfig, enabled: !newConfig.enabled })}>
+                      Botão visível
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={handleSaveNewConfig}
+                    disabled={facialSettingsLoading || !newConfig.neighborhoodId || !newConfig.url}
+                    className="btn-primary flex-1 flex items-center justify-center gap-2"
+                  >
+                    <Save size={20} />
+                    {facialSettingsLoading ? 'Salvando...' : editingConfigId ? 'Atualizar' : 'Salvar'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowNewConfigModal(false)
+                      setNewConfig({ neighborhoodId: '', url: '', enabled: true })
+                      setEditingConfigId(null)
+                    }}
+                    className="px-4 py-2 border-2 border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
