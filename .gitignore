@@ -51,6 +51,8 @@ prisma/prisma/dev.db
 *.jpeg
 *.PNG
 !public/logo-nubox.png
+!public/nubox-app-192.png
+!public/nubox-app-512.png
 
 # database
 *.db
@@ -67,3 +69,5 @@ prisma/prisma/dev.db
 *.jpeg
 *.PNG
 !public/logo-nubox.png
+!public/nubox-app-192.png
+!public/nubox-app-512.png
