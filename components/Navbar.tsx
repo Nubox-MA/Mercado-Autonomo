@@ -71,9 +71,9 @@ export default function Navbar() {
                 <Image
                   src="/logo-nubox.PNG"
                   alt="NüBox - Mercado Autônomo"
-                  width={90}
-                  height={90}
-                  className="h-[80px] sm:h-[90px] w-auto"
+                  width={150}
+                  height={150}
+                  className="h-[100px] sm:h-[140px] w-auto"
                   priority
                 />
               </button>
@@ -82,9 +82,9 @@ export default function Navbar() {
                 <Image
                   src="/logo-nubox.PNG"
                   alt="NüBox - Mercado Autônomo"
-                  width={90}
-                  height={90}
-                  className="h-[80px] sm:h-[90px] w-auto"
+                  width={150}
+                  height={150}
+                  className="h-[100px] sm:h-[140px] w-auto"
                   priority
                 />
               </Link>
