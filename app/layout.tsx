@@ -13,8 +13,8 @@ export const metadata: Metadata = {
   title: 'NüBox - Catálogo Digital',
   description: 'Consulte produtos disponíveis no NüBox do condomínio',
   icons: {
-    icon: '/favicon.svg',
-    apple: '/logo-nubox.PNG',
+    icon: '/nubox-app-192.png',
+    apple: '/nubox-app-192.png',
   },
   manifest: '/manifest.json',
   themeColor: '#16a34a',
