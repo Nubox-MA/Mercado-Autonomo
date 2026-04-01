@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/saurus-sync",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 7 * * *"
     }
   ]
 }
