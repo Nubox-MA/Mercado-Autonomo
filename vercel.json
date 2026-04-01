@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/saurus-sync",
+      "schedule": "*/10 * * * *"
+    }
+  ]
+}

@@ -1,12 +1,21 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import axios from 'axios'
 import { Plus, Edit, Trash2, Upload, Search, X, ArrowUp, ArrowDown } from 'lucide-react'
 import Image from 'next/image'
 import toast from 'react-hot-toast'
 import ConfirmModal from '@/components/ConfirmModal'
+
+interface AdminStock {
+  minStock: number | null
+  hasLowStock: boolean
+  hasZeroStock: boolean
+  threshold: number
+  stocksByLocation: { neighborhoodName: string; stock: number }[]
+  lowStockLocations: { neighborhoodName: string; stock: number }[]
+}
 
 interface Product {
   id: string
@@ -24,6 +33,7 @@ interface Product {
     id: string
     name: string
   }
+  adminStock?: AdminStock
 }
 
 interface Category {
@@ -31,10 +41,23 @@ interface Category {
   name: string
 }
 
+/** Nome da categoria padrão do sistema (sync/import/API). */
+function isSemCategoriaCategoryName(name: string | undefined | null): boolean {
+  if (!name) return false
+  return name.trim().replace(/\s+/g, ' ').toLowerCase() === 'sem categoria'
+}
+
+/** Produto “sem categoria” na prática: sem vínculo na listagem OU na categoria cadastrada “Sem Categoria”. */
+function isSemCategoriaGroup(product: Product): boolean {
+  if (!product.category?.id) return true
+  return isSemCategoriaCategoryName(product.category.name)
+}
+
 interface Condominium {
   id: string
   name: string
   active: boolean
+  displayOrder?: number | null
 }
 
 interface CondominiumPrice {
@@ -61,8 +84,15 @@ export default function ProductsPage() {
   const [newCategoryName, setNewCategoryName] = useState('')
   const [isCreatingCategoryLoading, setIsCreatingCategoryLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [sortField, setSortField] = useState<'name' | 'category' | 'status' | null>(null)
+  /** '' = todas; '__none__' = sem categoria; senão id da categoria */
+  const [filterCategoryId, setFilterCategoryId] = useState('')
+  const [sortField, setSortField] = useState<'name' | 'category' | 'status' | 'stock' | null>(null)
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [onlyZeroStock, setOnlyZeroStock] = useState(false)
+  const [hideAllLocationsZero, setHideAllLocationsZero] = useState(false)
+  const [lowStockThreshold, setLowStockThreshold] = useState(10)
+  const [tempLowStockInput, setTempLowStockInput] = useState('10')
+  const [savingStockThreshold, setSavingStockThreshold] = useState(false)
   const [showDeleteAllModal, setShowDeleteAllModal] = useState(false)
   const [showDeleteAllConfirmModal, setShowDeleteAllConfirmModal] = useState(false)
   const [isDeletingAll, setIsDeletingAll] = useState(false)
@@ -82,12 +112,35 @@ export default function ProductsPage() {
   // Preços por condomínio
   const [condominiumPrices, setCondominiumPrices] = useState<Record<string, CondominiumPrice>>({})
 
+  const fetchProducts = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!token) return
+      try {
+        if (!opts?.silent) setLoading(true)
+        const response = await axios.get('/api/admin/products', {
+          params: { _t: Date.now() },
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        setProducts(response.data.products)
+        if (typeof response.data.lowStockThreshold === 'number') {
+          setLowStockThreshold(response.data.lowStockThreshold)
+          setTempLowStockInput(String(response.data.lowStockThreshold))
+        }
+      } catch (error) {
+        console.error('Error fetching products:', error)
+      } finally {
+        if (!opts?.silent) setLoading(false)
+      }
+    },
+    [token]
+  )
+
   useEffect(() => {
-    fetchProducts()
+    if (token) fetchProducts()
     fetchCategories()
     fetchCondominiums()
     fetchCatalogItemsPerPage()
-  }, [])
+  }, [token, fetchProducts])
 
   const fetchCatalogItemsPerPage = async () => {
     try {
@@ -104,25 +157,13 @@ export default function ProductsPage() {
 
   const fetchCondominiums = async () => {
     try {
-      const response = await axios.get('/api/admin/neighborhoods')
-      const activeCondominiums = response.data
-        .filter((c: Condominium) => c.active)
-        .sort((a: Condominium, b: Condominium) => a.name.localeCompare(b.name))
+      const response = await axios.get('/api/admin/neighborhoods', {
+        params: { _t: Date.now() },
+      })
+      const activeCondominiums = response.data.filter((c: Condominium) => c.active)
       setCondominiums(activeCondominiums)
     } catch (error) {
       console.error('Error fetching condominiums:', error)
-    }
-  }
-
-
-  const fetchProducts = async () => {
-    try {
-      const response = await axios.get('/api/products')
-      setProducts(response.data.products)
-    } catch (error) {
-      console.error('Error fetching products:', error)
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -299,16 +340,19 @@ export default function ProductsPage() {
   const handleDelete = async () => {
     if (!showDeleteModal) return
 
+    const deletedId = showDeleteModal.id
     try {
       setIsDeleting(true)
-      await axios.delete(`/api/products/${showDeleteModal.id}`, {
+      await axios.delete(`/api/products/${deletedId}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      toast.success('Produto deletado!')
       setShowDeleteModal(null)
-      fetchProducts()
+      setProducts((prev) => prev.filter((p) => p.id !== deletedId))
+      toast.success('Produto deletado!')
+      await fetchProducts({ silent: true })
     } catch (error) {
       toast.error('Erro ao deletar produto')
+      fetchProducts({ silent: true })
     } finally {
       setIsDeleting(false)
     }
@@ -317,19 +361,22 @@ export default function ProductsPage() {
   const handleDeleteAll = async () => {
     try {
       setIsDeletingAll(true)
-      
-      // Deletar todos os produtos usando API específica
+
       const response = await axios.delete('/api/admin/products/delete-all', {
         headers: { Authorization: `Bearer ${token}` },
       })
-      
-      toast.success(response.data.message || `Todos os ${products.length} produtos foram deletados!`)
+
+      setProducts([])
       setShowDeleteAllModal(false)
       setShowDeleteAllConfirmModal(false)
-      fetchProducts()
+      toast.success(
+        response.data.message || `Todos os produtos foram deletados!`
+      )
+      await fetchProducts({ silent: true })
     } catch (error: any) {
       console.error('Delete all error:', error)
       toast.error(error.response?.data?.error || 'Erro ao deletar produtos')
+      fetchProducts({ silent: true })
     } finally {
       setIsDeletingAll(false)
     }
@@ -515,7 +562,38 @@ export default function ProductsPage() {
   }
 
   // Função para lidar com ordenação
-  const handleSort = (field: 'name' | 'category' | 'status') => {
+  const saveLowStockThreshold = async () => {
+    if (!token) {
+      toast.error('Sessão expirada')
+      return
+    }
+    const n = parseInt(tempLowStockInput, 10)
+    if (!Number.isFinite(n) || n < 0) {
+      toast.error('Informe um número inteiro ≥ 0')
+      return
+    }
+    if (n > 99999) {
+      toast.error('Valor máximo: 99999')
+      return
+    }
+    try {
+      setSavingStockThreshold(true)
+      await axios.post(
+        '/api/admin/settings',
+        { key: 'lowStockThreshold', value: String(n) },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      setLowStockThreshold(n)
+      toast.success('Limite de estoque baixo salvo')
+      await fetchProducts({ silent: true })
+    } catch {
+      toast.error('Erro ao salvar limite')
+    } finally {
+      setSavingStockThreshold(false)
+    }
+  }
+
+  const handleSort = (field: 'name' | 'category' | 'status' | 'stock') => {
     if (sortField === field) {
       // Se já está ordenando por este campo, alternar ordem
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
@@ -526,9 +604,29 @@ export default function ProductsPage() {
     }
   }
 
+  const hasStockByLocation = (p: Product) =>
+    (p.adminStock?.stocksByLocation?.length ?? 0) > 0
+
+  /** Tem preço em pelo menos um local e em todos os locais o estoque é 0. */
+  const isZeroInEveryLocation = (p: Product) => {
+    const locs = p.adminStock?.stocksByLocation
+    if (!locs || locs.length === 0) return false
+    return locs.every((s) => s.stock === 0)
+  }
+
+  const countZeroInSomeLocation = products.filter((p) => p.adminStock?.hasZeroStock).length
+  const countLowStockProducts = products.filter((p) => p.adminStock?.hasLowStock).length
+
   // Filtrar e ordenar produtos
   const filteredAndSortedProducts = products
     .filter((product) => {
+      if (onlyZeroStock && !product.adminStock?.hasZeroStock) return false
+      if (hideAllLocationsZero && isZeroInEveryLocation(product)) return false
+      if (filterCategoryId === '__none__') {
+        if (!isSemCategoriaGroup(product)) return false
+      } else if (filterCategoryId) {
+        if (product.category?.id !== filterCategoryId) return false
+      }
       if (!searchQuery) return true
       const query = searchQuery.toLowerCase()
       return (
@@ -546,13 +644,21 @@ export default function ProductsPage() {
         const result = categoryA.localeCompare(categoryB)
         return sortOrder === 'asc' ? result : -result
       } else if (sortField === 'status') {
-        // Ordenar por status: disponível primeiro (true) ou indisponível (false)
         const statusA = a.active ? 1 : 0
         const statusB = b.active ? 1 : 0
         const result = statusA - statusB
         return sortOrder === 'asc' ? result : -result
+      } else if (sortField === 'stock') {
+        const aOk = hasStockByLocation(a)
+        const bOk = hasStockByLocation(b)
+        if (!aOk && !bOk) return 0
+        if (!aOk) return 1
+        if (!bOk) return -1
+        const ka = a.adminStock!.minStock!
+        const kb = b.adminStock!.minStock!
+        const result = ka - kb
+        return sortOrder === 'asc' ? result : -result
       }
-      // Sem ordenação específica, manter ordem original
       return 0
     })
 
@@ -596,31 +702,127 @@ export default function ProductsPage() {
         </div>
 
         {/* Barra de Pesquisa e Filtros */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="Pesquisar produto por nome ou categoria"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="input-field pl-10 pr-10"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col lg:flex-row gap-4 lg:items-stretch">
+            <div className="flex-1 relative min-w-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder="Pesquisar produto por nome ou categoria"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="input-field pl-10 pr-10"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center lg:w-[min(100%,22rem)] shrink-0">
+              <label htmlFor="admin-products-filter-category" className="text-sm font-bold text-gray-700 sm:sr-only">
+                Filtrar por categoria
+              </label>
+              <select
+                id="admin-products-filter-category"
+                value={filterCategoryId}
+                onChange={(e) => setFilterCategoryId(e.target.value)}
+                className="input-field py-3 font-medium text-gray-800 cursor-pointer w-full"
               >
-                <X size={18} />
+                <option value="">Todas as categorias</option>
+                <option value="__none__">
+                  Sem categoria (sem vínculo ou categoria &quot;Sem Categoria&quot;)
+                </option>
+                {[...categories]
+                  .filter((c) => !isSemCategoriaCategoryName(c.name))
+                  .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-x-8 sm:gap-y-1 text-sm text-gray-800">
+              <p>
+                <span className="font-semibold text-gray-700">
+                  Quantidade de produtos com estoque zerado em algum local (loja):{' '}
+                </span>
+                <span className="font-bold text-gray-900 tabular-nums">{countZeroInSomeLocation}</span>
+              </p>
+              <p>
+                <span className="font-semibold text-gray-700">Quantidade de produtos com estoque baixo: </span>
+                <span className="font-bold text-gray-900 tabular-nums">{countLowStockProducts}</span>
+              </p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={onlyZeroStock}
+                  onChange={(e) => setOnlyZeroStock(e.target.checked)}
+                  className="w-5 h-5 mt-0.5 rounded border-gray-300 text-primary-600 shrink-0"
+                />
+                <span className="text-sm font-bold text-gray-800 leading-snug">
+                  Mostrar na lista apenas produtos com estoque zerado em algum local (loja)
+                </span>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={hideAllLocationsZero}
+                  onChange={(e) => setHideAllLocationsZero(e.target.checked)}
+                  className="w-5 h-5 mt-0.5 rounded border-gray-300 text-primary-600 shrink-0"
+                />
+                <span className="text-sm text-gray-800 leading-snug">
+                  <span className="font-bold">Ocultar da lista</span> produtos com estoque zerado em{' '}
+                  <span className="font-bold">todos</span> os locais (se em pelo menos uma loja houver estoque, o
+                  produto continua na lista)
+                </span>
+              </label>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-200 lg:justify-end">
+              <span className="text-sm font-semibold text-gray-700">Alerta estoque baixo: menos de</span>
+              <input
+                type="number"
+                min={0}
+                max={99999}
+                value={tempLowStockInput}
+                onChange={(e) => setTempLowStockInput(e.target.value)}
+                className="w-24 input-field py-2 text-center font-bold"
+              />
+              <span className="text-sm text-gray-600">un.</span>
+              <button
+                type="button"
+                onClick={() => void saveLowStockThreshold()}
+                disabled={savingStockThreshold}
+                className="px-4 py-2 rounded-xl text-sm font-bold bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50"
+              >
+                {savingStockThreshold ? 'Salvando…' : 'Salvar limite'}
               </button>
-            )}
+              <span className="text-xs text-gray-500 max-w-[220px]">
+                Atual: {lowStockThreshold} un. (define “estoque baixo”; salvar recarrega a lista)
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Contador de resultados */}
-        {searchQuery && (
+        {(searchQuery || filterCategoryId || onlyZeroStock || hideAllLocationsZero) && (
           <p className="text-sm text-gray-600">
-            {filteredAndSortedProducts.length} produto(s) encontrado(s)
+            {filteredAndSortedProducts.length} produto(s) na lista
+            {filterCategoryId === '__none__' && ' (Sem categoria: sem vínculo + pasta &quot;Sem Categoria&quot;)'}
+            {filterCategoryId &&
+              filterCategoryId !== '__none__' &&
+              ` (categoria: ${categories.find((c) => c.id === filterCategoryId)?.name ?? '—'})`}
+            {onlyZeroStock && ' (só zerado em algum local)'}
+            {hideAllLocationsZero && ' (ocultos: zerados em todos os locais)'}
+            {searchQuery && ' (busca ativa)'}
           </p>
         )}
       </div>
@@ -689,14 +891,49 @@ export default function ProductsPage() {
                     </div>
                   </button>
                 </th>
+                <th className="text-left py-3 px-4">
+                  <button
+                    type="button"
+                    onClick={() => handleSort('stock')}
+                    className="flex items-center gap-2 hover:text-primary-600 transition-colors"
+                  >
+                    Estoque (locais)
+                    <div className="flex items-center gap-0.5">
+                      <ArrowUp
+                        size={12}
+                        className={
+                          sortField === 'stock' && sortOrder === 'asc' ? 'text-primary-600' : 'text-gray-300'
+                        }
+                      />
+                      <ArrowDown
+                        size={12}
+                        className={
+                          sortField === 'stock' && sortOrder === 'desc' ? 'text-primary-600' : 'text-gray-300'
+                        }
+                      />
+                    </div>
+                  </button>
+                </th>
                 <th className="text-left py-3 px-4">Ações</th>
               </tr>
             </thead>
             <tbody>
               {filteredAndSortedProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-gray-500">
-                    {searchQuery ? 'Nenhum produto encontrado com essa pesquisa' : 'Nenhum produto cadastrado'}
+                  <td colSpan={6} className="py-12 text-center text-gray-500">
+                    {products.length === 0
+                      ? 'Nenhum produto cadastrado'
+                      : searchQuery
+                        ? 'Nenhum produto encontrado com essa pesquisa'
+                        : filterCategoryId
+                          ? filterCategoryId === '__none__'
+                            ? 'Nenhum produto em Sem categoria (sem vínculo ou pasta padrão) com os filtros atuais'
+                            : 'Nenhum produto nesta categoria com os filtros atuais'
+                          : onlyZeroStock
+                            ? 'Nenhum produto com estoque zerado em algum local'
+                            : hideAllLocationsZero
+                              ? 'Nenhum produto nesta visualização com os filtros atuais'
+                              : 'Nenhum produto cadastrado'}
                   </td>
                 </tr>
               ) : (
@@ -731,6 +968,34 @@ export default function ProductsPage() {
                     >
                       {product.active ? 'Disponível' : 'Indisponível'}
                     </span>
+                  </td>
+                  <td className="py-3 px-4 text-sm">
+                    {product.adminStock == null || product.adminStock.stocksByLocation?.length === 0 ? (
+                      <span className="text-gray-400 text-xs">Sem preço por local</span>
+                    ) : (
+                      <div className="space-y-1">
+                        {product.adminStock.hasLowStock && (
+                          <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-900">
+                            Estoque baixo
+                          </span>
+                        )}
+                        <ul className="text-xs text-gray-600 max-w-[220px]">
+                          {product.adminStock.stocksByLocation.map((loc) => (
+                            <li
+                              key={`${loc.neighborhoodName}-${loc.stock}`}
+                              className={loc.stock === 0 ? 'text-red-700 font-semibold' : ''}
+                            >
+                              {loc.neighborhoodName}: {loc.stock} un.
+                            </li>
+                          ))}
+                        </ul>
+                        {!product.adminStock.hasLowStock && product.adminStock.minStock !== null && (
+                          <span className="text-xs text-gray-500 block pt-1">
+                            Mín.: <strong>{product.adminStock.minStock}</strong> un.
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex gap-2">

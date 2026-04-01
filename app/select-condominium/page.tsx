@@ -13,6 +13,7 @@ interface Condominium {
   name: string
   photoUrl?: string
   active: boolean
+  displayOrder?: number | null
 }
 
 export default function SelectCondominiumPage() {
@@ -36,7 +37,6 @@ export default function SelectCondominiumPage() {
       const response = await axios.get('/api/admin/neighborhoods')
       const activeCondominiums = response.data
         .filter((c: Condominium) => c.active)
-        .sort((a: Condominium, b: Condominium) => a.name.localeCompare(b.name))
       setCondominiums(activeCondominiums)
     } catch (error) {
       console.error('Erro ao buscar condomínios:', error)

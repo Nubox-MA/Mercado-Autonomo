@@ -89,8 +89,17 @@ O sistema Saurus PDV é a **fonte da verdade** para estoque. Quando uma venda ac
 
 ### Variáveis de Ambiente
 ```env
-SAURUS_WS_URL=http://wsretaguarda.saurus.net.br/v001/serviceRetaguarda.asmx
-SAURUS_WS_PASSWORD=senha_criptografada_fornecida_pela_saurus
+SAURUS_TOKEN=2b92098c-3a01-48d1-aa1c-68f900366099
+SAURUS_PDV_KEY=SUA_CHAVE_PDV_DO_CLIENTE
+SAURUS_DOMINIO=dev08
+SAURUS_TP_SYNC=1
+SAURUS_DH_REFERENCIA=1968-08-30T00:00:00-03:00
+
+# (opcional) se precisar sobrescrever os endpoints padrão
+SAURUS_CADASTROS_URL=https://wscadastros.saurus.net.br/v001/serviceCadastros.asmx
+SAURUS_RETAGUARDA_URL=https://wsretaguarda.saurus.net.br/v001/serviceRetaguarda.asmx
+
+# (opcional) se futuramente existir webhook
 SAURUS_WEBHOOK_SECRET=chave_secreta_para_validar_webhooks
 ```
 

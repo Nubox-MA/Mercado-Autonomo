@@ -70,12 +70,14 @@ export default function FacialRegistrationButton() {
   }
 
   return (
-    <div className="w-full bg-gradient-to-r from-primary-500 to-primary-600 py-5 px-6 shadow-lg">
+    <button
+      type="button"
+      onClick={handleClick}
+      aria-label="Abrir link de reconhecimento facial"
+      className="w-full bg-gradient-to-r from-primary-500 to-primary-600 py-5 px-6 shadow-lg text-left cursor-pointer"
+    >
       <div className="container mx-auto">
-        <button
-          onClick={handleClick}
-          className="w-full bg-white rounded-2xl hover:bg-gray-50 transition-all shadow-lg hover:shadow-xl active:scale-95 overflow-hidden"
-        >
+        <div className="w-full bg-white rounded-2xl hover:bg-gray-50 transition-all shadow-lg hover:shadow-xl active:scale-95 overflow-hidden">
           <div className="flex items-center gap-4 p-4">
             {/* Ícone de Porta */}
             <div className="flex-shrink-0 bg-primary-100 rounded-xl p-3">
@@ -112,8 +114,8 @@ export default function FacialRegistrationButton() {
               </div>
             </div>
           </div>
-        </button>
+        </div>
       </div>
-    </div>
+    </button>
   )
 }

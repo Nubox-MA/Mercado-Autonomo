@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useRouter, usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { LayoutDashboard, Package, FolderTree, LogOut, Home, User, Menu, X, MapPin, FileSpreadsheet, Database } from 'lucide-react'
+import { LayoutDashboard, Package, FolderTree, LogOut, Home, User, Menu, X, MapPin, FileSpreadsheet, Database, FileJson } from 'lucide-react'
 import Image from 'next/image'
 
 export default function AdminLayout({
@@ -49,6 +49,7 @@ export default function AdminLayout({
     { href: '/admin/categories', icon: FolderTree, label: 'Categorias' },
     { href: '/admin/neighborhoods', icon: MapPin, label: 'Locais' },
     { href: '/admin/backup', icon: Database, label: 'Backup' },
+    { href: '/admin/backup-preview', icon: FileJson, label: 'Ver backup (JSON)' },
     { href: '/admin/profile', icon: User, label: 'Meu Perfil' },
   ]
 

@@ -32,10 +32,35 @@ export async function PUT(
       return NextResponse.json({ error: 'Erro ao processar dados' }, { status: 400 })
     }
     
-    const { name, active, photoUrl } = body
+    const {
+      name,
+      active,
+      photoUrl,
+      externalId,
+      externalSystem,
+      saurusDominio,
+      saurusTabPrecoId,
+      saurusSyncEnabled,
+      displayOrder,
+      clearSaurusPdvKey,
+    } = body
 
-    // Validar que pelo menos um campo foi fornecido
-    if (name === undefined && active === undefined && photoUrl === undefined) {
+    const hasSaurusPdvKeyUpdate = typeof body.saurusPdvKey === 'string'
+
+    const hasAnyField =
+      name !== undefined ||
+      active !== undefined ||
+      photoUrl !== undefined ||
+      externalId !== undefined ||
+      externalSystem !== undefined ||
+      saurusDominio !== undefined ||
+      saurusTabPrecoId !== undefined ||
+      saurusSyncEnabled !== undefined ||
+      displayOrder !== undefined ||
+      hasSaurusPdvKeyUpdate ||
+      clearSaurusPdvKey === true
+
+    if (!hasAnyField) {
       return NextResponse.json({ error: 'Nenhum campo para atualizar' }, { status: 400 })
     }
 
@@ -67,11 +92,55 @@ export async function PUT(
     if (name !== undefined) updateData.name = name.trim()
     if (active !== undefined) updateData.active = Boolean(active)
     if (photoUrl !== undefined) {
-      // Tratar photoUrl: se for string vazia ou falsy, usar null, senão usar o valor
       if (typeof photoUrl === 'string' && photoUrl.trim() === '') {
         updateData.photoUrl = null
       } else {
         updateData.photoUrl = photoUrl || null
+      }
+    }
+
+    if (externalId !== undefined) {
+      updateData.externalId =
+        typeof externalId === 'string' && externalId.trim() ? externalId.trim() : null
+    }
+    if (externalSystem !== undefined) {
+      updateData.externalSystem =
+        typeof externalSystem === 'string' && externalSystem.trim()
+          ? externalSystem.trim()
+          : null
+    }
+    if (saurusDominio !== undefined) {
+      updateData.saurusDominio =
+        typeof saurusDominio === 'string' && saurusDominio.trim()
+          ? saurusDominio.trim()
+          : null
+    }
+    if (saurusTabPrecoId !== undefined) {
+      updateData.saurusTabPrecoId =
+        typeof saurusTabPrecoId === 'string' && saurusTabPrecoId.trim()
+          ? saurusTabPrecoId.trim()
+          : null
+    }
+    if (saurusSyncEnabled !== undefined) {
+      updateData.saurusSyncEnabled = Boolean(saurusSyncEnabled)
+    }
+    if (displayOrder !== undefined) {
+      if (displayOrder === null || displayOrder === '') {
+        updateData.displayOrder = null
+      } else {
+        const n = Number.parseInt(String(displayOrder), 10)
+        if (!Number.isFinite(n) || n < 0) {
+          return NextResponse.json({ error: 'Ordem inválida (use inteiro >= 0)' }, { status: 400 })
+        }
+        updateData.displayOrder = n
+      }
+    }
+    if (clearSaurusPdvKey === true) {
+      updateData.saurusPdvKey = null
+    } else if (hasSaurusPdvKeyUpdate) {
+      const pk = body.saurusPdvKey as string
+      if (pk.trim() !== '') {
+        updateData.saurusPdvKey = pk.trim()
       }
     }
 
@@ -107,7 +176,11 @@ export async function PUT(
       throw e
     }
 
-    return NextResponse.json(neighborhood)
+    const { saurusPdvKey, ...rest } = neighborhood
+    return NextResponse.json({
+      ...rest,
+      saurusPdvKeyConfigured: Boolean(saurusPdvKey?.trim()),
+    })
   } catch (error: any) {
     console.error('Update neighborhood error:', error)
     console.error('Error stack:', error.stack)

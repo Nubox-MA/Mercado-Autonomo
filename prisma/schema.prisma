@@ -67,7 +67,8 @@ model Product {
 
   @@index([categoryId])
   @@index([active])
-  @@index([externalId, externalSystem]) // Para buscar produtos por código externo
+  // Um código Saurus = um produto no NüBox (evita duplicata na re-sync; o índice único cobre a busca por externalId)
+  @@unique([externalId, externalSystem])
   @@map("products")
 }
 
@@ -122,18 +123,47 @@ model Setting {
 model Neighborhood {
   id           String   @id @default(uuid())
   name         String   @unique
+  displayOrder Int?     // Ordem manual de exibição (menor aparece primeiro)
   deliveryFee  Float
   active       Boolean  @default(true)
   photoUrl    String?  // Foto da fachada do mercado
-  externalId  String? // ID da loja no sistema externo (ex: Saurus)
+  externalId  String? // ID da loja no sistema externo (ex: Saurus idLoja)
   externalSystem String? // Nome do sistema externo (ex: "SAURUS")
+  // Integração Saurus por local (fallback: SAURUS_PDV_KEY / SAURUS_DOMINIO no .env)
+  saurusPdvKey          String? // ChaveCaixa para retCadastros / estoque
+  saurusDominio         String? // Dominio do cliente na Saurus
+  saurusTabPrecoId      String? // pro_idTabPreco preferencial
+  saurusSyncEnabled     Boolean  @default(false) // sync automático (cron)
+  saurusLastSyncAt      DateTime?
+  saurusLastSyncOk      Boolean?
+  saurusLastSyncMessage String?
+  saurusLastSyncSummary String? // JSON resumo (produtos, preços, avisos)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   users        User[]   
   productPrices ProductPrice[]
+  syncLogs     NeighborhoodSyncLog[]
 
   @@index([externalId, externalSystem]) // Para buscar condomínio por código externo
   @@map("neighborhoods")
+}
+
+model NeighborhoodSyncLog {
+  id             String   @id @default(uuid())
+  neighborhoodId String
+  ok             Boolean
+  message        String?
+  durationMs     Int?
+  startedAt      DateTime?
+  finishedAt     DateTime @default(now())
+  summary        String?
+  createdAt      DateTime @default(now())
+
+  neighborhood Neighborhood @relation(fields: [neighborhoodId], references: [id], onDelete: Cascade)
+
+  @@index([neighborhoodId, finishedAt])
+  @@index([ok, finishedAt])
+  @@map("neighborhood_sync_logs")
 }
 
 // Preços de produtos por condomínio

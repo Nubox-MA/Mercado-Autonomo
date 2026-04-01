@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authMiddleware } from '@/lib/middleware'
 import { prisma } from '@/lib/prisma'
+import { getLowStockThreshold } from '@/lib/stock-threshold'
 
 export async function GET(req: NextRequest) {
   const auth = await authMiddleware(req, true)
@@ -88,11 +89,28 @@ export async function GET(req: NextRequest) {
     // Total de categorias
     const totalCategories = await prisma.category.count()
 
+    const lowStockThreshold = await getLowStockThreshold()
+    const productsForStock = await prisma.product.findMany({
+      select: {
+        id: true,
+        productPrices: { select: { stock: true } },
+      },
+    })
+    let lowStockProductsCount = 0
+    for (const p of productsForStock) {
+      const locs = p.productPrices
+      if (locs.length === 0) continue
+      const anyLow = locs.some((pp) => pp.stock < lowStockThreshold)
+      if (anyLow) lowStockProductsCount++
+    }
+
     return NextResponse.json({
       stats: {
         totalProducts,
         availableProducts,
         unavailableProducts,
+        lowStockProductsCount,
+        lowStockThreshold,
         totalCategories,
         mostViewedProducts: mostViewedProducts.map((p) => ({
           id: p.id,

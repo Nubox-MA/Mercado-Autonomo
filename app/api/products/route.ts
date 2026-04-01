@@ -3,6 +3,12 @@ import { prisma } from '@/lib/prisma'
 import { authMiddleware } from '@/lib/middleware'
 import { z } from 'zod'
 
+export const dynamic = 'force-dynamic'
+
+const noStore = {
+  'Cache-Control': 'no-store, max-age=0, must-revalidate',
+}
+
 const createProductSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   description: z.string().nullable().optional(), // Aceita null
@@ -21,6 +27,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search') || ''
+    const hasSearch = search.trim().length > 0
     const categoryId = searchParams.get('categoryId')
     const neighborhoodId = searchParams.get('neighborhoodId') // ID do condomínio
     const activeOnly = searchParams.get('activeOnly') === 'true'
@@ -105,7 +112,7 @@ export async function GET(req: NextRequest) {
 
     // Aplicar filtro case-insensitive de busca se necessário (após buscar do banco)
     let filteredProducts = products
-    if (search) {
+    if (hasSearch) {
       const searchLower = search.toLowerCase()
       filteredProducts = products.filter((product) => {
         const nameMatch = product.name.toLowerCase().includes(searchLower)
@@ -176,13 +183,19 @@ export async function GET(req: NextRequest) {
         const productCopy: any = { ...product }
         delete productCopy.productPrices
         
+        // Com condomínio: indisponível no catálogo se estoque do local for zero (regra Saurus/sync)
+        const catalogActive =
+          neighborhoodId && 'productPrices' in product
+            ? product.active && finalStock > 0
+            : product.active
+
         return {
           ...productCopy,
           price: finalPrice,
           promoPrice: finalPromoPrice,
           isPromotion: finalIsPromotion,
           stock: finalStock,
-          active: product.active, // Garantir que active seja retornado
+          active: catalogActive,
         }
       })
       .filter((p): p is NonNullable<typeof p> => p !== null)
@@ -196,7 +209,23 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    return NextResponse.json({ products: productsWithPrices })
+    // "Todos" + ordem alfabética: com estoque primeiro (A–Z), zerados no final (A–Z) e já como indisponíveis (active)
+    let orderedProducts = productsWithPrices
+    if (!categoryId && sortBy === 'name' && orderedProducts.length > 0) {
+      const nameCmp = (a: (typeof orderedProducts)[0], b: (typeof orderedProducts)[0]) =>
+        a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
+      const inStock = orderedProducts.filter((p) => p.stock > 0).sort(nameCmp)
+      const zeroStock = orderedProducts.filter((p) => p.stock <= 0).sort(nameCmp)
+      orderedProducts = [...inStock, ...zeroStock]
+    }
+
+    // Regra de catálogo:
+    // - com busca ativa: mantém itens indisponíveis visíveis (com tarja)
+    // - sem busca (folheando): exibe apenas disponíveis no local selecionado
+    const visibleProducts =
+      neighborhoodId && !hasSearch ? orderedProducts.filter((p) => p.active) : orderedProducts
+
+    return NextResponse.json({ products: visibleProducts }, { headers: noStore })
   } catch (error: any) {
     console.error('Get products error:', error)
     console.error('Error details:', {
