@@ -358,9 +358,15 @@ export default function NeighborhoodsPage() {
       error: null,
       summary: null,
     })
+    const streamFlag =
+      typeof process !== 'undefined' &&
+      typeof process.env !== 'undefined' &&
+      process.env.NEXT_PUBLIC_SYNC_STREAM === 'false'
+        ? 'false'
+        : 'true'
     const url = `/api/integration/saurus/sync?neighborhoodId=${encodeURIComponent(
       neighborhoodId
-    )}&stream=true${forceImageRefresh ? '&forceImageRefresh=true' : ''}`
+    )}&stream=${streamFlag}${forceImageRefresh ? '&forceImageRefresh=true' : ''}`
     try {
       const res = await fetch(url, {
         method: 'POST',
@@ -411,6 +417,16 @@ export default function NeighborhoodsPage() {
       }))
       toast.success('Sincronização concluída.')
       fetchNeighborhoods({ silent: true })
+      // Fecha automaticamente após breve intervalo para evitar ficar preso na UI
+      setTimeout(() => {
+        setSyncOverlay({
+          open: false,
+          percent: 0,
+          label: '',
+          error: null,
+          summary: null,
+        })
+      }, 1200)
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Erro ao sincronizar'
       setSyncOverlay((prev) => ({ ...prev, error: message, label: 'Erro' }))
