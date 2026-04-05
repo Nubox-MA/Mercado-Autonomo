@@ -37,29 +37,32 @@ self.addEventListener('activate', (event) => {
 
 // Interceptar requisições
 self.addEventListener('fetch', (event) => {
+  const req = event.request
+  const url = new URL(req.url)
+
+  // Nunca interceptar/caching para métodos diferentes de GET
+  // e para chamadas de API (evita erros em POST/stream)
+  const isApi = url.pathname.startsWith('/api/')
+  if (req.method !== 'GET' || isApi) {
+    return // deixa seguir normal (network)
+  }
+
   event.respondWith(
-    caches.match(event.request)
+    caches.match(req)
       .then((response) => {
-        // Retornar do cache se disponível, senão buscar da rede
-        if (response) {
-          return response
-        }
-        return fetch(event.request).then((response) => {
-          // Não cachear se não for uma resposta válida
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response
-          }
-          // Clonar a resposta
-          const responseToCache = response.clone()
+        if (response) return response
+        return fetch(req).then((netRes) => {
+          // Só cacheia respostas GET válidas e do mesmo domínio
+          if (!netRes || netRes.status !== 200 || netRes.type !== 'basic') return netRes
+          const resClone = netRes.clone()
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache)
+            cache.put(req, resClone)
           })
-          return response
+          return netRes
         })
       })
       .catch(() => {
-        // Se offline e não tiver no cache, retornar página offline
-        if (event.request.destination === 'document') {
+        if (req.destination === 'document') {
           return caches.match('/offline-data.json')
         }
       })
