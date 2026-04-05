@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useRouter, usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { LayoutDashboard, Package, FolderTree, LogOut, Home, User, Menu, X, MapPin, FileSpreadsheet, Database, FileJson } from 'lucide-react'
+import { LayoutDashboard, Package, FolderTree, LogOut, Home, User, Menu, X, MapPin, FileSpreadsheet, Database, FileJson, StickyNote } from 'lucide-react'
 import Image from 'next/image'
 
 export default function AdminLayout({
@@ -50,6 +50,7 @@ export default function AdminLayout({
     { href: '/admin/neighborhoods', icon: MapPin, label: 'Locais' },
     { href: '/admin/backup', icon: Database, label: 'Backup' },
     { href: '/admin/backup-preview', icon: FileJson, label: 'Ver backup (JSON)' },
+    { href: '/admin/notes', icon: StickyNote, label: 'Anotações' },
     { href: '/admin/profile', icon: User, label: 'Meu Perfil' },
   ]
 
@@ -132,18 +133,25 @@ export default function AdminLayout({
         >
           <nav className="bg-white rounded-2xl shadow-md p-2 lg:sticky lg:top-6">
             <ul className="space-y-1">
-              {navItems.map((item) => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    onClick={() => setIsSidebarOpen(false)}
-                    className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-primary-50 hover:text-primary-600 transition-all font-medium text-gray-600"
-                  >
-                    <item.icon size={20} />
-                    <span>{item.label}</span>
-                  </Link>
-                </li>
-              ))}
+              {navItems.map((item) => {
+                const active = pathname === item.href
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      onClick={() => setIsSidebarOpen(false)}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${
+                        active
+                          ? 'bg-primary-50 text-primary-700'
+                          : 'text-gray-600 hover:bg-primary-50 hover:text-primary-600'
+                      }`}
+                    >
+                      <item.icon size={20} />
+                      <span>{item.label}</span>
+                    </Link>
+                  </li>
+                )
+              })}
             </ul>
           </nav>
         </aside>

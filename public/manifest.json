@@ -1,7 +1,7 @@
 {
-  "name": "NüBox - Catálogo Digital",
+  "name": "NüBox - Seu Mercado autônomo 24h",
   "short_name": "NüBox",
-  "description": "Catálogo digital de produtos do NüBox",
+  "description": "Seu mercado autônomo 24h — produtos do NüBox no condomínio",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#16a34a",

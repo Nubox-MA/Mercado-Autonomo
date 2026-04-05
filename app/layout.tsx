@@ -10,7 +10,7 @@ import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'NüBox - Catálogo Digital',
+  title: 'NüBox - Seu Mercado autônomo 24h',
   description: 'Consulte produtos disponíveis no NüBox do condomínio',
   icons: {
     icon: '/nubox-app-192.png',
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'NüBox',
+    title: 'NüBox - Seu Mercado autônomo 24h',
   },
 }
 

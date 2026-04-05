@@ -346,111 +346,205 @@ export async function executeSaurusSync(opts: {
     total: totalLinhas,
   })
 
-  let idx = 0
+  // ------------- OTIMIZAÇÃO: gravação em lotes com concorrência limitada -------------
+  // Progresso agregado durante os lotes
+  let processedCount = 0
+  function emitProgress() {
+    reportWriteProgress(emit, processedCount, totalLinhas)
+  }
+
+  // 1) Pré-carrega produtos existentes por (externalId, 'SAURUS')
+  const existingProducts = await prisma.product.findMany({
+    where: { externalSystem: 'SAURUS', externalId: { in: produtosRows.map(p => String(p.pro_idProduto ?? '')) } },
+    select: { id: true, externalId: true, imageUrl: true },
+  })
+  const externalIdToExisting = new Map<string, { id: string; imageUrl: string | null }>()
+  for (const ex of existingProducts) {
+    if (ex.externalId) externalIdToExisting.set(ex.externalId, { id: ex.id, imageUrl: ex.imageUrl })
+  }
+
+  // 2) Descobre categorias necessárias antecipadamente (minimiza roundtrips)
+  const categoryLabelToId = new Map<string, string>()
+  async function getCategoryId(labelRaw: string | undefined | null): Promise<string> {
+    const norm = normalizeSaurusCategoryLabel(labelRaw)
+    const cached = categoryLabelToId.get(norm)
+    if (cached) return cached
+    const found = await findOrCreateCategoryFromSaurusLabel(norm)
+    categoryLabelToId.set(norm, found.id)
+    return found.id
+  }
+
+  // 3) Monta dados para novos produtos e updates necessários
+  type PreparedProduct = {
+    saurusId: string
+    name: string
+    priceFromSaurus: number
+    imageFromSaurus: string | null
+    categoryLabel: string | undefined | null
+  }
+  const prepared: PreparedProduct[] = []
   for (const p of produtosRows) {
-    idx++
-    const saurusId = p.pro_idProduto ? String(p.pro_idProduto) : undefined
+    const saurusId = p.pro_idProduto ? String(p.pro_idProduto) : ''
     if (!saurusId) {
       summary.produtosPulados++
-      reportWriteProgress(emit, idx, totalLinhas)
       continue
     }
-
     const name = String(p.pro_descProduto ?? '').trim()
     if (!name) {
       summary.produtosPulados++
       summary.warnings.push(`Linha sem nome (pro_idProduto=${saurusId})`)
-      reportWriteProgress(emit, idx, totalLinhas)
       continue
     }
-
     const priceCandidates = precosByProduto.get(saurusId) ?? []
     const chosen =
       (tabPrecoId
         ? priceCandidates.find((r) => String(r.pro_idTabPreco) === tabPrecoId)
         : undefined) ?? priceCandidates[0]
-
-    const price = chosen?.pro_vPreco
-      ? Number(String(chosen.pro_vPreco).replace(',', '.'))
-      : NaN
+    const price = chosen?.pro_vPreco ? Number(String(chosen.pro_vPreco).replace(',', '.')) : NaN
     if (!Number.isFinite(price)) {
       summary.warnings.push(`Sem preço válido para pro_idProduto=${saurusId} (${name})`)
     }
-
-    // Chave da integração: pro_idProduto da Saurus (= externalId), NUNCA o nome do produto.
-    const existing = await prisma.product.findFirst({
-      where: {
-        externalId: saurusId,
-        externalSystem: 'SAURUS',
-      },
-      select: { id: true, imageUrl: true },
-    })
-
-    // Produto já existe: não alterar nome, categoria nem preço base — só estoque/preço-por-local abaixo.
     const imageFromSaurus = imagemByProduto.get(saurusId) ?? null
-    let product: { id: string }
-    if (existing) {
-      product = { id: existing.id }
-      const canUpdateImage =
-        Boolean(imageFromSaurus) &&
-        (Boolean(opts.forceImageRefresh) || !existing.imageUrl || existing.imageUrl.trim() === '')
-      if (canUpdateImage) {
-        await prisma.product.update({
-          where: { id: existing.id },
-          data: { imageUrl: imageFromSaurus },
-          select: { id: true },
-        })
-      }
-    } else {
-      const category = await findOrCreateCategoryFromSaurusLabel(p.pro_descCategoria)
-      product = await prisma.product.create({
-        data: {
-          name,
-          description: null,
-          price: Number.isFinite(price) ? price : 0,
-          promoPrice: null,
-          isPromotion: false,
-          isNew: false,
-          stock: 0,
-          imageUrl: imageFromSaurus,
-          categoryId: category.id,
-          active: true,
-          externalId: saurusId,
-          externalSystem: 'SAURUS',
-        },
-        select: { id: true },
+    prepared.push({
+      saurusId,
+      name,
+      priceFromSaurus: Number.isFinite(price) ? price : 0,
+      imageFromSaurus,
+      categoryLabel: p.pro_descCategoria,
+    })
+  }
+
+  // 4) Cria em lote os que não existem
+  const toCreate = prepared.filter(p => !externalIdToExisting.has(p.saurusId))
+  if (toCreate.length > 0) {
+    const createPayload = []
+    for (const p of toCreate) {
+      const categoryId = await getCategoryId(p.categoryLabel)
+      createPayload.push({
+        name: p.name,
+        description: null as string | null,
+        price: p.priceFromSaurus,
+        promoPrice: null as number | null,
+        isPromotion: false,
+        isNew: false,
+        stock: 0,
+        imageUrl: p.imageFromSaurus,
+        categoryId,
+        active: true,
+        externalId: p.saurusId,
+        externalSystem: 'SAURUS' as const,
       })
     }
+    // Prisma createMany ignora select/returning; depois buscamos os criados
+    await prisma.product.createMany({ data: createPayload, skipDuplicates: true })
+    summary.upserts.createdProducts += createPayload.length
+    processedCount += createPayload.length
+    emitProgress()
+    // Recarrega o mapa com os IDs recém-criados
+    const updatedExisting = await prisma.product.findMany({
+      where: { externalSystem: 'SAURUS', externalId: { in: toCreate.map(p => p.saurusId) } },
+      select: { id: true, externalId: true, imageUrl: true },
+    })
+    for (const ex of updatedExisting) {
+      if (ex.externalId) externalIdToExisting.set(ex.externalId, { id: ex.id, imageUrl: ex.imageUrl })
+    }
+  }
 
-    if (existing) summary.upserts.updatedProducts++
-    else summary.upserts.createdProducts++
+  // 5) Atualiza imagens faltantes em paralelo limitada
+  async function runWithConcurrency<T>(items: T[], limit: number, worker: (it: T, index: number) => Promise<void>) {
+    const queue: Promise<void>[] = []
+    for (let i = 0; i < items.length; i++) {
+      const p = (async () => worker(items[i], i))()
+      queue.push(p)
+      if (queue.length >= limit) {
+        await Promise.race(queue)
+        // remove as concluídas
+        for (let j = queue.length - 1; j >= 0; j--) {
+          if (queue[j].catch(() => undefined) && (queue[j] as any)._fulfilled) queue.splice(j, 1)
+        }
+      }
+    }
+    await Promise.all(queue)
+  }
+  // Worker helper sem uso de propriedade privada _fulfilled; usar await por lotes simples:
+  async function runInBatches<T>(items: T[], batchSize: number, worker: (it: T, index: number) => Promise<void>) {
+    for (let i = 0; i < items.length; i += batchSize) {
+      const slice = items.slice(i, i + batchSize)
+      await Promise.all(slice.map((it, k) => worker(it, i + k)))
+      processedCount += slice.length
+      emitProgress()
+    }
+  }
 
-    const saldo = saldoByProduto.get(saurusId)
+  const toMaybeUpdateImage = prepared.filter(p => {
+    const ex = externalIdToExisting.get(p.saurusId)
+    if (!ex) return false
+    if (!p.imageFromSaurus) return false
+    return opts.forceImageRefresh || !ex.imageUrl || ex.imageUrl.trim() === ''
+  })
+  await runInBatches(toMaybeUpdateImage, 25, async (p) => {
+    const ex = externalIdToExisting.get(p.saurusId)
+    if (!ex) return
+    await prisma.product.update({
+      where: { id: ex.id },
+      data: { imageUrl: p.imageFromSaurus },
+      select: { id: true },
+    })
+    summary.upserts.updatedProducts++
+  })
+
+  // 6) Upsert de preços/estoque por local (createMany para novos; updates individuais em lotes)
+  const allProductIds = [...externalIdToExisting.values()].map(v => v.id)
+  const existingPrices = await prisma.productPrice.findMany({
+    where: { neighborhoodId: neighborhood.id, productId: { in: allProductIds } },
+    select: { productId: true },
+  })
+  const existingPriceSet = new Set(existingPrices.map(p => p.productId))
+
+  const toCreatePrices: { productId: string; neighborhoodId: string; price: number; promoPrice: number | null; isPromotion: boolean; stock: number }[] = []
+  const toUpdatePrices: { productId: string; stock: number }[] = []
+
+  for (const p of prepared) {
+    const ex = externalIdToExisting.get(p.saurusId)
+    if (!ex) continue
+    const saldo = saldoByProduto.get(p.saurusId)
     const stock = typeof saldo === 'number' ? saldo : 0
-
-    // Preço por local: na primeira vez vem da Saurus; nas próximas syncs só atualiza ESTOQUE (vendas/reposição).
-    await prisma.productPrice.upsert({
-      where: {
-        productId_neighborhoodId: {
-          productId: product.id,
-          neighborhoodId: neighborhood.id,
-        },
-      },
-      update: { stock },
-      create: {
-        productId: product.id,
+    if (!existingPriceSet.has(ex.id)) {
+      toCreatePrices.push({
+        productId: ex.id,
         neighborhoodId: neighborhood.id,
-        price: Number.isFinite(price) ? price : 0,
+        price: p.priceFromSaurus,
         promoPrice: null,
         isPromotion: false,
         stock,
-      },
-    })
-    summary.upserts.upsertedProductPrices++
-    summary.upserts.updatedStocks++
-    summary.produtosGravados++
+      })
+    } else {
+      toUpdatePrices.push({ productId: ex.id, stock })
+    }
+  }
 
-    reportWriteProgress(emit, idx, totalLinhas)
+  if (toCreatePrices.length > 0) {
+    await prisma.productPrice.createMany({ data: toCreatePrices, skipDuplicates: true })
+    summary.upserts.upsertedProductPrices += toCreatePrices.length
+    summary.upserts.updatedStocks += toCreatePrices.length
+    summary.produtosGravados += toCreatePrices.length
+    processedCount += toCreatePrices.length
+    emitProgress()
+  }
+  if (toUpdatePrices.length > 0) {
+    await runInBatches(toUpdatePrices, 50, async (item) => {
+      await prisma.productPrice.update({
+        where: {
+          productId_neighborhoodId: {
+            productId: item.productId,
+            neighborhoodId: neighborhood.id,
+          },
+        },
+        data: { stock: item.stock },
+      })
+    })
+    summary.upserts.updatedStocks += toUpdatePrices.length
+    summary.produtosGravados += toUpdatePrices.length
   }
 
   summary.finishedAt = new Date().toISOString()
