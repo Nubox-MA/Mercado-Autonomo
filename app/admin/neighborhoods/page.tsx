@@ -358,55 +358,92 @@ export default function NeighborhoodsPage() {
       error: null,
       summary: null,
     })
-    const streamFlag =
-      typeof process !== 'undefined' &&
-      typeof process.env !== 'undefined' &&
-      process.env.NEXT_PUBLIC_SYNC_STREAM === 'false'
-        ? 'false'
-        : 'true'
+    // Config: se não estiver explicitamente 'true', não usar stream
+    const streamFlag = process.env.NEXT_PUBLIC_SYNC_STREAM === 'true' ? 'true' : 'false'
     const url = `/api/integration/saurus/sync?neighborhoodId=${encodeURIComponent(
       neighborhoodId
     )}&stream=${streamFlag}${forceImageRefresh ? '&forceImageRefresh=true' : ''}`
     try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (!res.ok || !res.body) {
-        const t = await res.text()
-        throw new Error(t || `HTTP ${res.status}`)
-      }
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
       let finalSummary: SyncSummary | null = null
-      for (;;) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-        for (const line of lines) {
-          if (!line.trim()) continue
-          const msg = JSON.parse(line) as Record<string, unknown>
-          if (msg.type === 'progress') {
-            setSyncOverlay((prev) => ({
-              ...prev,
-              percent: typeof msg.percent === 'number' ? msg.percent : prev.percent,
-              label: typeof msg.label === 'string' ? msg.label : prev.label,
-              current: typeof msg.current === 'number' ? msg.current : prev.current,
-              total: typeof msg.total === 'number' ? msg.total : prev.total,
-            }))
+
+      if (streamFlag === 'true') {
+        // Stream com fallback automático para non-stream após timeout
+        const controller = new AbortController()
+        const fallbackTimer = setTimeout(() => controller.abort(), 8000)
+        try {
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            signal: controller.signal,
+          })
+          if (!res.ok || !res.body) {
+            const t = await res.text()
+            throw new Error(t || `HTTP ${res.status}`)
           }
-          if (msg.type === 'done') {
-            if (msg.ok && msg.summary) {
-              finalSummary = msg.summary as SyncSummary
-            } else {
-              throw new Error(typeof msg.error === 'string' ? msg.error : 'Falha na sincronização')
+          clearTimeout(fallbackTimer)
+          const reader = res.body.getReader()
+          const decoder = new TextDecoder()
+          let buffer = ''
+          for (;;) {
+            const { done, value } = await reader.read()
+            if (done) break
+            buffer += decoder.decode(value, { stream: true })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
+            for (const line of lines) {
+              if (!line.trim()) continue
+              const msg = JSON.parse(line) as Record<string, unknown>
+              if (msg.type === 'progress') {
+                setSyncOverlay((prev) => ({
+                  ...prev,
+                  percent: typeof msg.percent === 'number' ? msg.percent : prev.percent,
+                  label: typeof msg.label === 'string' ? msg.label : prev.label,
+                  current: typeof msg.current === 'number' ? msg.current : prev.current,
+                  total: typeof msg.total === 'number' ? msg.total : prev.total,
+                }))
+              }
+              if (msg.type === 'done') {
+                if ((msg as any).ok && (msg as any).summary) {
+                  finalSummary = (msg as any).summary as SyncSummary
+                } else {
+                  throw new Error(typeof (msg as any).error === 'string' ? (msg as any).error : 'Falha na sincronização')
+                }
+              }
             }
           }
+        } catch (err) {
+          // Fallback: tenta non-stream
+          const res = await fetch(
+            `/api/integration/saurus/sync?neighborhoodId=${encodeURIComponent(neighborhoodId)}&stream=false${
+              forceImageRefresh ? '&forceImageRefresh=true' : ''
+            }`,
+            { method: 'POST', headers: { Authorization: `Bearer ${token}` } }
+          )
+          if (!res.ok) {
+            const t = await res.text()
+            throw new Error(t || `HTTP ${res.status}`)
+          }
+          const data = (await res.json()) as { ok: boolean; summary?: SyncSummary }
+          if (!data.ok || !data.summary) throw new Error('Falha na sincronização (fallback)')
+          finalSummary = data.summary
+        } finally {
+          clearTimeout(fallbackTimer)
         }
+      } else {
+        // Non-stream direto
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) {
+          const t = await res.text()
+          throw new Error(t || `HTTP ${res.status}`)
+        }
+        const data = (await res.json()) as { ok: boolean; summary?: SyncSummary }
+        if (!data.ok || !data.summary) throw new Error('Falha na sincronização')
+        finalSummary = data.summary
       }
+
       setSyncOverlay((prev) => ({
         ...prev,
         percent: 100,
