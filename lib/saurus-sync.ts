@@ -451,21 +451,6 @@ export async function executeSaurusSync(opts: {
   }
 
   // 5) Atualiza imagens faltantes em paralelo limitada
-  async function runWithConcurrency<T>(items: T[], limit: number, worker: (it: T, index: number) => Promise<void>) {
-    const queue: Promise<void>[] = []
-    for (let i = 0; i < items.length; i++) {
-      const p = (async () => worker(items[i], i))()
-      queue.push(p)
-      if (queue.length >= limit) {
-        await Promise.race(queue)
-        // remove as concluídas
-        for (let j = queue.length - 1; j >= 0; j--) {
-          if (queue[j].catch(() => undefined) && (queue[j] as any)._fulfilled) queue.splice(j, 1)
-        }
-      }
-    }
-    await Promise.all(queue)
-  }
   // Worker helper sem uso de propriedade privada _fulfilled; usar await por lotes simples:
   async function runInBatches<T>(items: T[], batchSize: number, worker: (it: T, index: number) => Promise<void>) {
     for (let i = 0; i < items.length; i += batchSize) {
