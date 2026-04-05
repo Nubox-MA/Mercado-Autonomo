@@ -451,11 +451,18 @@ export async function executeSaurusSync(opts: {
   }
 
   // 5) Atualiza imagens faltantes em paralelo limitada
-  // Worker helper sem uso de propriedade privada _fulfilled; usar await por lotes simples:
-  async function runInBatches<T>(items: T[], batchSize: number, worker: (it: T, index: number) => Promise<void>) {
+  // Helpers: executa operações em lotes pequenos; para múltiplos updates usa uma única conexão ($transaction)
+  async function runUpdatesInBatchesTx<T>(
+    items: T[],
+    batchSize: number,
+    builder: (it: T, index: number) => ReturnType<typeof prisma.$executeRaw> | ReturnType<typeof prisma.product.update> | ReturnType<typeof prisma.productPrice.update>
+  ) {
     for (let i = 0; i < items.length; i += batchSize) {
       const slice = items.slice(i, i + batchSize)
-      await Promise.all(slice.map((it, k) => worker(it, i + k)))
+      // Constrói as operações
+      const ops = slice.map((it, k) => builder(it, i + k)) as any[]
+      // Usa uma única conexão no pool
+      await prisma.$transaction(ops)
       processedCount += slice.length
       emitProgress()
     }
@@ -467,16 +474,25 @@ export async function executeSaurusSync(opts: {
     if (!p.imageFromSaurus) return false
     return opts.forceImageRefresh || !ex.imageUrl || ex.imageUrl.trim() === ''
   })
-  await runInBatches(toMaybeUpdateImage, 25, async (p) => {
-    const ex = externalIdToExisting.get(p.saurusId)
-    if (!ex) return
-    await prisma.product.update({
-      where: { id: ex.id },
-      data: { imageUrl: p.imageFromSaurus },
-      select: { id: true },
+  if (toMaybeUpdateImage.length > 0) {
+    await runUpdatesInBatchesTx(toMaybeUpdateImage, 5, (p) => {
+      const ex = externalIdToExisting.get(p.saurusId)
+      if (!ex) {
+        // no-op dummy; $transaction não aceita item vazio, então faça um update inócuo impossível
+        return prisma.product.update({
+          where: { id: '00000000-0000-0000-0000-000000000000' },
+          data: { imageUrl: null },
+          select: { id: true },
+        })
+      }
+      summary.upserts.updatedProducts++
+      return prisma.product.update({
+        where: { id: ex.id },
+        data: { imageUrl: p.imageFromSaurus },
+        select: { id: true },
+      })
     })
-    summary.upserts.updatedProducts++
-  })
+  }
 
   // 6) Upsert de preços/estoque por local (createMany para novos; updates individuais em lotes)
   const allProductIds = [...externalIdToExisting.values()].map(v => v.id)
@@ -517,8 +533,8 @@ export async function executeSaurusSync(opts: {
     emitProgress()
   }
   if (toUpdatePrices.length > 0) {
-    await runInBatches(toUpdatePrices, 50, async (item) => {
-      await prisma.productPrice.update({
+    await runUpdatesInBatchesTx(toUpdatePrices, 10, (item) => {
+      return prisma.productPrice.update({
         where: {
           productId_neighborhoodId: {
             productId: item.productId,
