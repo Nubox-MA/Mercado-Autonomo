@@ -455,14 +455,14 @@ export async function executeSaurusSync(opts: {
   async function runUpdatesInBatchesTx<T>(
     items: T[],
     batchSize: number,
-    builder: (it: T, index: number) => ReturnType<typeof prisma.$executeRaw> | ReturnType<typeof prisma.product.update> | ReturnType<typeof prisma.productPrice.update>
+    builder: (it: T, index: number) => any
   ) {
     for (let i = 0; i < items.length; i += batchSize) {
       const slice = items.slice(i, i + batchSize)
       // Constrói as operações
       const ops = slice.map((it, k) => builder(it, i + k)) as any[]
       // Usa uma única conexão no pool
-      await prisma.$transaction(ops)
+      await prisma.$transaction(ops as any)
       processedCount += slice.length
       emitProgress()
     }
@@ -477,19 +477,12 @@ export async function executeSaurusSync(opts: {
   if (toMaybeUpdateImage.length > 0) {
     await runUpdatesInBatchesTx(toMaybeUpdateImage, 5, (p) => {
       const ex = externalIdToExisting.get(p.saurusId)
-      if (!ex) {
-        // no-op dummy; $transaction não aceita item vazio, então faça um update inócuo impossível
-        return prisma.product.update({
-          where: { id: '00000000-0000-0000-0000-000000000000' },
-          data: { imageUrl: null },
-          select: { id: true },
-        })
-      }
+      if (!ex) return prisma.$executeRaw`SELECT 1`
       summary.upserts.updatedProducts++
       return prisma.product.update({
         where: { id: ex.id },
         data: { imageUrl: p.imageFromSaurus },
-        select: { id: true },
+        select: { id: true } as any,
       })
     })
   }
