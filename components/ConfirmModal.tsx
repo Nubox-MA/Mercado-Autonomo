@@ -13,6 +13,7 @@ interface ConfirmModalProps {
   type?: 'danger' | 'success' | 'warning' | 'info'
   isLoading?: boolean
   disabled?: boolean
+  zIndex?: number
 }
 
 export default function ConfirmModal({
@@ -25,7 +26,8 @@ export default function ConfirmModal({
   cancelText = 'Cancelar',
   type = 'warning',
   isLoading = false,
-  disabled = false
+  disabled = false,
+  zIndex = 100
 }: ConfirmModalProps) {
   if (!isOpen) return null
 
@@ -51,7 +53,10 @@ export default function ConfirmModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div
+      className="fixed inset-0 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      style={{ zIndex }}
+    >
       <div className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-md shadow-2xl animate-in zoom-in-95 duration-200 relative">
         <button 
           onClick={onClose}

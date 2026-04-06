@@ -62,7 +62,7 @@ export default function Home() {
   
   // New Filter States
   const [sortBy, setSortBy] = useState('name')
-  const [isPromotion, setIsPromotion] = useState(true) // Por padrão, mostrar ofertas
+  const [isPromotion, setIsPromotion] = useState(false) // Por padrão, mostrar "Todas"
   const [isNew, setIsNew] = useState(false)
   // Inicializar com valor do localStorage ou padrão
   const [viewMode, setViewMode] = useState<'list' | 'single' | 'double'>(() => {
@@ -592,20 +592,20 @@ export default function Home() {
 
           {/* Categories Horizontal Scroll */}
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-            {/* Novidades */}
+            {/* Todas (padrão inicial) */}
             <button
               onClick={() => {
-                setIsNew(!isNew)
-                setIsPromotion(false)
                 setSelectedCategory('')
+                setIsPromotion(false)
+                setIsNew(false)
               }}
-              className={`px-4 py-2 rounded-xl whitespace-nowrap text-sm font-bold transition-all flex items-center gap-2 ${
-                isNew
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
-                  : 'bg-white text-blue-600 hover:bg-blue-50 border border-blue-100'
+              className={`px-4 py-2 rounded-xl whitespace-nowrap text-sm font-bold transition-all ${
+                selectedCategory === '' && !isPromotion && !isNew
+                  ? 'bg-primary-600 text-white shadow-lg shadow-primary-200'
+                  : 'bg-white text-gray-600 hover:bg-gray-50 border'
               }`}
             >
-              Novidades
+              Todas
             </button>
 
             {/* Ofertas */}
@@ -624,19 +624,20 @@ export default function Home() {
               Ofertas
             </button>
 
+            {/* Novidades */}
             <button
               onClick={() => {
-                setSelectedCategory('')
+                setIsNew(!isNew)
                 setIsPromotion(false)
-                setIsNew(false)
+                setSelectedCategory('')
               }}
-              className={`px-4 py-2 rounded-xl whitespace-nowrap text-sm font-bold transition-all ${
-                selectedCategory === '' && !isPromotion && !isNew
-                  ? 'bg-primary-600 text-white shadow-lg shadow-primary-200'
-                  : 'bg-white text-gray-600 hover:bg-gray-50 border'
+              className={`px-4 py-2 rounded-xl whitespace-nowrap text-sm font-bold transition-all flex items-center gap-2 ${
+                isNew
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
+                  : 'bg-white text-blue-600 hover:bg-blue-50 border border-blue-100'
               }`}
             >
-              Todas
+              Novidades
             </button>
             {categories.map((category) => (
               <button

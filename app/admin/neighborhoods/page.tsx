@@ -127,6 +127,7 @@ export default function NeighborhoodsPage() {
   const [syncHealthRange, setSyncHealthRange] = useState<'24h' | '7d'>('24h')
   const [syncHealthLoading, setSyncHealthLoading] = useState(false)
   const [syncHealthClearing, setSyncHealthClearing] = useState(false)
+  const [syncHealthClearConfirmOpen, setSyncHealthClearConfirmOpen] = useState(false)
   const [syncHealth, setSyncHealth] = useState<SyncHealthResponse | null>(null)
 
   const [formData, setFormData] = useState({
@@ -521,10 +522,6 @@ export default function NeighborhoodsPage() {
 
   const clearSyncHealth = async () => {
     if (!token) return
-    const confirmed = window.confirm(
-      'Limpar todas as métricas de sincronização?\n\nIsso apaga o histórico da Saúde da Sync e zera o status de última sync dos locais.'
-    )
-    if (!confirmed) return
 
     try {
       setSyncHealthClearing(true)
@@ -835,7 +832,7 @@ export default function NeighborhoodsPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => void clearSyncHealth()}
+                  onClick={() => setSyncHealthClearConfirmOpen(true)}
                   disabled={syncHealthClearing || syncHealthLoading}
                   className="px-3 py-2 rounded-xl text-sm font-bold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 disabled:opacity-50"
                 >
@@ -963,6 +960,22 @@ export default function NeighborhoodsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={syncHealthClearConfirmOpen}
+        onClose={() => setSyncHealthClearConfirmOpen(false)}
+        onConfirm={async () => {
+          setSyncHealthClearConfirmOpen(false)
+          await clearSyncHealth()
+        }}
+        title="Limpar métricas da Saúde da Sync?"
+        message="Isso vai apagar todo o histórico de execuções da Saúde da Sync e limpar o status de última sincronização exibido nos locais. Não remove produtos, preços ou estoque."
+        confirmText="Sim, limpar métricas"
+        cancelText="Cancelar"
+        type="warning"
+        isLoading={syncHealthClearing}
+        zIndex={130}
+      />
 
       <ConfirmModal
         isOpen={!!showDeleteModal}
