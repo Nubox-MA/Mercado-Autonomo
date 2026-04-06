@@ -106,3 +106,32 @@ export async function GET(request: NextRequest) {
     recentErrors,
   })
 }
+
+/**
+ * Limpa histórico de métricas de sync para recomeçar monitoramento do zero.
+ * Remove logs agregados e zera campos de "última sync" nos locais.
+ */
+export async function DELETE(request: NextRequest) {
+  const auth = await authMiddleware(request, true)
+  if (!auth.authorized) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+  }
+
+  const [deletedLogs, updatedNeighborhoods] = await prisma.$transaction([
+    prisma.neighborhoodSyncLog.deleteMany({}),
+    prisma.neighborhood.updateMany({
+      data: {
+        saurusLastSyncAt: null,
+        saurusLastSyncOk: null,
+        saurusLastSyncMessage: null,
+        saurusLastSyncSummary: null,
+      },
+    }),
+  ])
+
+  return NextResponse.json({
+    ok: true,
+    deletedLogs: deletedLogs.count,
+    updatedNeighborhoods: updatedNeighborhoods.count,
+  })
+}

@@ -126,6 +126,7 @@ export default function NeighborhoodsPage() {
   const [syncHealthOpen, setSyncHealthOpen] = useState(false)
   const [syncHealthRange, setSyncHealthRange] = useState<'24h' | '7d'>('24h')
   const [syncHealthLoading, setSyncHealthLoading] = useState(false)
+  const [syncHealthClearing, setSyncHealthClearing] = useState(false)
   const [syncHealth, setSyncHealth] = useState<SyncHealthResponse | null>(null)
 
   const [formData, setFormData] = useState({
@@ -518,6 +519,29 @@ export default function NeighborhoodsPage() {
     await loadSyncHealth(range)
   }
 
+  const clearSyncHealth = async () => {
+    if (!token) return
+    const confirmed = window.confirm(
+      'Limpar todas as métricas de sincronização?\n\nIsso apaga o histórico da Saúde da Sync e zera o status de última sync dos locais.'
+    )
+    if (!confirmed) return
+
+    try {
+      setSyncHealthClearing(true)
+      await axios.delete('/api/admin/neighborhoods/sync-health', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      toast.success('Métricas de sync limpas com sucesso.')
+      await loadSyncHealth(syncHealthRange)
+      await fetchNeighborhoods({ silent: true })
+    } catch (e) {
+      console.error('Erro ao limpar métricas de sync:', e)
+      toast.error('Erro ao limpar métricas de sincronização')
+    } finally {
+      setSyncHealthClearing(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -778,7 +802,8 @@ export default function NeighborhoodsPage() {
             </div>
 
             <div className="p-4 sm:p-6 overflow-y-auto space-y-5">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -806,6 +831,15 @@ export default function NeighborhoodsPage() {
                   }`}
                 >
                   7 dias
+                </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void clearSyncHealth()}
+                  disabled={syncHealthClearing || syncHealthLoading}
+                  className="px-3 py-2 rounded-xl text-sm font-bold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 disabled:opacity-50"
+                >
+                  {syncHealthClearing ? 'Limpando…' : 'Limpar métricas'}
                 </button>
               </div>
 
