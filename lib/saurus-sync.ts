@@ -26,6 +26,31 @@ type EstoqueRow = {
   qSaldo?: string
 }
 
+/** Tabelas de promoção (retCadastros v4) — doc WsCadastros */
+type PromocaoDadosRow = {
+  pro_idPromocao?: string
+  pro_dInicio?: string
+  pro_dFinal?: string
+  pro_hInicio?: string
+  pro_hFinal?: string
+  pro_diasSemana?: string
+  pro_indStatus?: string
+  pro_vMinimo?: string
+}
+
+type PromocaoRegraRow = {
+  pro_idPromocaoRegra?: string
+  pro_idPromocao?: string
+  pro_tpPromocao?: string
+  pro_qPromocao?: string
+  pro_vPromocao?: string
+}
+
+type PromocaoItemRow = {
+  pro_idProduto?: string
+  pro_idPromocaoRegra?: string
+}
+
 function normalizeStoreId(v: string | null | undefined): string {
   return String(v ?? '').trim()
 }
@@ -50,6 +75,92 @@ function sameStoreId(expected: string | null, actual: string | null | undefined)
 function toArray<T>(v: unknown): T[] {
   if (!v) return []
   return Array.isArray(v) ? (v as T[]) : [v as T]
+}
+
+function parseNumLoose(v: string | undefined | null): number {
+  const n = Number(String(v ?? '').replace(',', '.'))
+  return Number.isFinite(n) ? n : NaN
+}
+
+/** Preço unitário da regra (pro_vPromocao / pro_qPromocao quando quantidade > 1). */
+function unitPriceFromPromoRegra(r: PromocaoRegraRow): number | null {
+  const v = parseNumLoose(r.pro_vPromocao)
+  if (!Number.isFinite(v) || v <= 0) return null
+  const q = parseNumLoose(r.pro_qPromocao)
+  if (Number.isFinite(q) && q > 1) return v / q
+  return v
+}
+
+function endOfDayUtc(d: Date): Date {
+  const x = new Date(d)
+  x.setUTCHours(23, 59, 59, 999)
+  return x
+}
+
+function isPromoDadosVigente(row: PromocaoDadosRow, now: Date): boolean {
+  if (String(row.pro_indStatus ?? '') !== '0') return false
+  const d0 = row.pro_dInicio ? new Date(row.pro_dInicio) : null
+  const d1 = row.pro_dFinal ? endOfDayUtc(new Date(row.pro_dFinal)) : null
+  if (d0 && !Number.isNaN(d0.getTime()) && now < d0) return false
+  if (d1 && !Number.isNaN(d1.getTime()) && now > d1) return false
+  return true
+}
+
+/** Bitmask: domingo=1, segunda=2, … (1 << getDay() com JS: 0=domingo). */
+function isDiaSemanaPromocaoOk(diasSemanaRaw: string | undefined, now: Date): boolean {
+  const raw = String(diasSemanaRaw ?? '').trim()
+  if (!raw || raw === '127') return true
+  const n = parseInt(raw, 10)
+  if (!Number.isFinite(n) || n <= 0) return true
+  const bit = 1 << now.getDay()
+  return (n & bit) !== 0
+}
+
+/**
+ * Cruza tbPromocaoDados + tbPromocaoRegras + tbPromocaoItens e devolve
+ * pro_idProduto (Saurus) → preço promocional unitário vigente.
+ */
+function buildPromotionUnitPriceBySaurusProductId(
+  cadRoot: Record<string, unknown>,
+  now: Date = new Date()
+): Map<string, number> {
+  const dadosRows = toArray<PromocaoDadosRow>(
+    (cadRoot as { tbPromocaoDados?: { row?: unknown } })?.tbPromocaoDados?.row
+  )
+  const regrasRows = toArray<PromocaoRegraRow>(
+    (cadRoot as { tbPromocaoRegras?: { row?: unknown } })?.tbPromocaoRegras?.row
+  )
+  const itensRows = toArray<PromocaoItemRow>(
+    (cadRoot as { tbPromocaoItens?: { row?: unknown } })?.tbPromocaoItens?.row
+  )
+
+  const dadosByPromo = new Map<string, PromocaoDadosRow>()
+  for (const d of dadosRows) {
+    const id = d.pro_idPromocao ? String(d.pro_idPromocao) : ''
+    if (id) dadosByPromo.set(id, d)
+  }
+
+  const regraById = new Map<string, PromocaoRegraRow>()
+  for (const r of regrasRows) {
+    const id = r.pro_idPromocaoRegra ? String(r.pro_idPromocaoRegra) : ''
+    if (id) regraById.set(id, r)
+  }
+
+  const out = new Map<string, number>()
+  for (const it of itensRows) {
+    const pid = it.pro_idProduto ? String(it.pro_idProduto) : ''
+    const rid = it.pro_idPromocaoRegra ? String(it.pro_idPromocaoRegra) : ''
+    if (!pid || !rid) continue
+    const regra = regraById.get(rid)
+    if (!regra?.pro_idPromocao) continue
+    const promo = dadosByPromo.get(String(regra.pro_idPromocao))
+    if (!promo || !isPromoDadosVigente(promo, now)) continue
+    if (!isDiaSemanaPromocaoOk(promo.pro_diasSemana, now)) continue
+    const unit = unitPriceFromPromoRegra(regra)
+    if (unit === null || unit <= 0) continue
+    if (!out.has(pid)) out.set(pid, unit)
+  }
+  return out
 }
 
 /** Texto vazio ou só espaços → "Sem Categoria"; demais: trim + espaços colapsados */
@@ -101,6 +212,8 @@ export type SaurusSyncSummary = {
   estoques: number
   /** Quantos cadastros de produto foram efetivamente gravados/atualizados no NüBox nesta sync */
   produtosGravados: number
+  /** Produtos com preço promocional aplicado (Saurus promoções vigentes) */
+  promocoesAplicadas: number
   /** Linhas ignoradas (sem código ou sem nome) */
   produtosPulados: number
   idLoja: string | null
@@ -220,6 +333,8 @@ export async function executeSaurusSync(opts: {
     (cadParsed?.cadastros as Record<string, unknown> | undefined) ??
     (cadParsed?.xmlIntegracaoRetorno as Record<string, unknown> | undefined) ??
     cadParsed
+  const cadRootRecord = cadRoot as Record<string, unknown>
+  const promoUnitBySaurusId = buildPromotionUnitPriceBySaurusProductId(cadRootRecord)
   const produtosRows: ProdutoRow[] = toArray<ProdutoRow>(
     (cadRoot as { tbProdutoDados?: { row?: unknown } })?.tbProdutoDados?.row
   )
@@ -304,6 +419,7 @@ export async function executeSaurusSync(opts: {
     precos: precosRows.length,
     estoques: estoqueRows.length,
     produtosGravados: 0,
+    promocoesAplicadas: 0,
     produtosPulados: 0,
     idLoja,
     tabPrecoId,
@@ -379,6 +495,8 @@ export async function executeSaurusSync(opts: {
     saurusId: string
     name: string
     priceFromSaurus: number
+    promoPrice: number | null
+    isPromotion: boolean
     imageFromSaurus: string | null
     categoryLabel: string | undefined | null
   }
@@ -404,15 +522,33 @@ export async function executeSaurusSync(opts: {
     if (!Number.isFinite(price)) {
       summary.warnings.push(`Sem preço válido para pro_idProduto=${saurusId} (${name})`)
     }
+    const base = Number.isFinite(price) ? price : 0
+    const promoUnit = promoUnitBySaurusId.get(saurusId)
+    let promoPrice: number | null = null
+    let isPromotion = false
+    if (
+      promoUnit !== undefined &&
+      Number.isFinite(promoUnit) &&
+      promoUnit > 0 &&
+      base > 0 &&
+      promoUnit < base - 1e-6
+    ) {
+      promoPrice = promoUnit
+      isPromotion = true
+    }
     const imageFromSaurus = imagemByProduto.get(saurusId) ?? null
     prepared.push({
       saurusId,
       name,
-      priceFromSaurus: Number.isFinite(price) ? price : 0,
+      priceFromSaurus: base,
+      promoPrice,
+      isPromotion,
       imageFromSaurus,
       categoryLabel: p.pro_descCategoria,
     })
   }
+
+  summary.promocoesAplicadas = prepared.filter((x) => x.isPromotion).length
 
   // 4) Cria em lote os que não existem
   const toCreate = prepared.filter(p => !externalIdToExisting.has(p.saurusId))
@@ -424,8 +560,8 @@ export async function executeSaurusSync(opts: {
         name: p.name,
         description: null as string | null,
         price: p.priceFromSaurus,
-        promoPrice: null as number | null,
-        isPromotion: false,
+        promoPrice: p.promoPrice,
+        isPromotion: p.isPromotion,
         isNew: false,
         stock: 0,
         imageUrl: p.imageFromSaurus,
@@ -468,20 +604,24 @@ export async function executeSaurusSync(opts: {
     }
   }
 
-  const toMaybeUpdateImage = prepared.filter(p => {
-    const ex = externalIdToExisting.get(p.saurusId)
-    if (!ex) return false
-    if (!p.imageFromSaurus) return false
-    return opts.forceImageRefresh || !ex.imageUrl || ex.imageUrl.trim() === ''
-  })
-  if (toMaybeUpdateImage.length > 0) {
-    await runUpdatesInBatchesTx(toMaybeUpdateImage, 5, (p) => {
+  const existingPrepared = prepared.filter((p) => externalIdToExisting.has(p.saurusId))
+  if (existingPrepared.length > 0) {
+    await runUpdatesInBatchesTx(existingPrepared, 8, (p) => {
       const ex = externalIdToExisting.get(p.saurusId)
       if (!ex) return prisma.$executeRaw`SELECT 1`
+      const shouldImage =
+        !!p.imageFromSaurus &&
+        (opts.forceImageRefresh || !ex.imageUrl || ex.imageUrl.trim() === '')
       summary.upserts.updatedProducts++
       return prisma.product.update({
         where: { id: ex.id },
-        data: { imageUrl: p.imageFromSaurus },
+        data: {
+          name: p.name,
+          price: p.priceFromSaurus,
+          promoPrice: p.promoPrice,
+          isPromotion: p.isPromotion,
+          ...(shouldImage ? { imageUrl: p.imageFromSaurus } : {}),
+        },
         select: { id: true } as any,
       })
     })
@@ -496,7 +636,13 @@ export async function executeSaurusSync(opts: {
   const existingPriceSet = new Set(existingPrices.map(p => p.productId))
 
   const toCreatePrices: { productId: string; neighborhoodId: string; price: number; promoPrice: number | null; isPromotion: boolean; stock: number }[] = []
-  const toUpdatePrices: { productId: string; stock: number }[] = []
+  const toUpdatePrices: {
+    productId: string
+    price: number
+    promoPrice: number | null
+    isPromotion: boolean
+    stock: number
+  }[] = []
 
   for (const p of prepared) {
     const ex = externalIdToExisting.get(p.saurusId)
@@ -508,12 +654,18 @@ export async function executeSaurusSync(opts: {
         productId: ex.id,
         neighborhoodId: neighborhood.id,
         price: p.priceFromSaurus,
-        promoPrice: null,
-        isPromotion: false,
+        promoPrice: p.promoPrice,
+        isPromotion: p.isPromotion,
         stock,
       })
     } else {
-      toUpdatePrices.push({ productId: ex.id, stock })
+      toUpdatePrices.push({
+        productId: ex.id,
+        price: p.priceFromSaurus,
+        promoPrice: p.promoPrice,
+        isPromotion: p.isPromotion,
+        stock,
+      })
     }
   }
 
@@ -534,7 +686,12 @@ export async function executeSaurusSync(opts: {
             neighborhoodId: neighborhood.id,
           },
         },
-        data: { stock: item.stock },
+        data: {
+          price: item.price,
+          promoPrice: item.promoPrice,
+          isPromotion: item.isPromotion,
+          stock: item.stock,
+        },
       })
     })
     summary.upserts.updatedStocks += toUpdatePrices.length

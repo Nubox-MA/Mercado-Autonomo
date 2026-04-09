@@ -62,7 +62,6 @@ export default function Home() {
   
   // New Filter States
   const [sortBy, setSortBy] = useState('name')
-  const [isPromotion, setIsPromotion] = useState(false) // Por padrão, mostrar "Todas"
   const [isNew, setIsNew] = useState(false)
   // Inicializar com valor do localStorage ou padrão
   const [viewMode, setViewMode] = useState<'list' | 'single' | 'double'>(() => {
@@ -112,12 +111,12 @@ export default function Home() {
     if (selectedCondominium) {
       fetchProducts()
     }
-  }, [selectedCondominium, selectedCategory, searchQuery, sortBy, isPromotion, isNew])
+  }, [selectedCondominium, selectedCategory, searchQuery, sortBy, isNew])
 
   // Sempre que filtros ou busca mudarem, voltar para a primeira página
   useEffect(() => {
     setCurrentPage(1)
-  }, [selectedCategory, searchQuery, sortBy, isPromotion, isNew, selectedCondominium, itemsPerPage])
+  }, [selectedCategory, searchQuery, sortBy, isNew, selectedCondominium, itemsPerPage])
 
   // Buscar configuração de itens por página (20, 30, 40) do painel admin
   useEffect(() => {
@@ -157,7 +156,6 @@ export default function Home() {
 
       if (searchQuery) params.append('search', searchQuery)
       if (selectedCategory) params.append('categoryId', selectedCategory)
-      if (isPromotion) params.append('isPromotion', 'true')
       if (isNew) params.append('isNew', 'true')
 
       const response = await axios.get(`/api/products?${params}`)
@@ -596,11 +594,10 @@ export default function Home() {
             <button
               onClick={() => {
                 setSelectedCategory('')
-                setIsPromotion(false)
                 setIsNew(false)
               }}
               className={`px-4 py-2 rounded-xl whitespace-nowrap text-sm font-bold transition-all ${
-                selectedCategory === '' && !isPromotion && !isNew
+                selectedCategory === '' && !isNew
                   ? 'bg-primary-600 text-white shadow-lg shadow-primary-200'
                   : 'bg-white text-gray-600 hover:bg-gray-50 border'
               }`}
@@ -608,27 +605,10 @@ export default function Home() {
               Todas
             </button>
 
-            {/* Ofertas */}
-            <button
-              onClick={() => {
-                setIsPromotion(!isPromotion)
-                setIsNew(false)
-                setSelectedCategory('')
-              }}
-              className={`px-4 py-2 rounded-xl whitespace-nowrap text-sm font-bold transition-all flex items-center gap-2 ${
-                isPromotion
-                  ? 'bg-red-600 text-white shadow-lg shadow-red-200'
-                  : 'bg-white text-red-600 hover:bg-red-50 border border-red-100'
-              }`}
-            >
-              Ofertas
-            </button>
-
             {/* Novidades */}
             <button
               onClick={() => {
                 setIsNew(!isNew)
-                setIsPromotion(false)
                 setSelectedCategory('')
               }}
               className={`px-4 py-2 rounded-xl whitespace-nowrap text-sm font-bold transition-all flex items-center gap-2 ${
@@ -644,7 +624,6 @@ export default function Home() {
                 key={category.id}
                 onClick={() => {
                   setSelectedCategory(category.id)
-                  setIsPromotion(false)
                   setIsNew(false)
                 }}
                 className={`px-4 py-2 rounded-xl whitespace-nowrap text-sm font-bold transition-all ${
@@ -674,7 +653,6 @@ export default function Home() {
               onClick={() => {
                 setSelectedCategory('')
                 setSearchQuery('')
-                setIsPromotion(false)
                 setIsNew(false)
                 setSortBy('name')
               }}

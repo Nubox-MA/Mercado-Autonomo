@@ -209,14 +209,21 @@ export async function GET(req: NextRequest) {
       })
     }
 
-    // "Todos" + ordem alfabética: com estoque primeiro (A–Z), zerados no final (A–Z) e já como indisponíveis (active)
+    // "Todas" + ordem por nome: em promoção primeiro (vitrine), depois demais; em cada grupo, com estoque antes dos zerados (A–Z).
+    const isPromoListing = (p: (typeof productsWithPrices)[0]) =>
+      Boolean(p.isPromotion && p.promoPrice != null && p.promoPrice > 0)
+
     let orderedProducts = productsWithPrices
     if (!categoryId && sortBy === 'name' && orderedProducts.length > 0) {
       const nameCmp = (a: (typeof orderedProducts)[0], b: (typeof orderedProducts)[0]) =>
         a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
-      const inStock = orderedProducts.filter((p) => p.stock > 0).sort(nameCmp)
-      const zeroStock = orderedProducts.filter((p) => p.stock <= 0).sort(nameCmp)
-      orderedProducts = [...inStock, ...zeroStock]
+      const inStock = orderedProducts.filter((p) => p.stock > 0)
+      const promoInStock = inStock.filter(isPromoListing).sort(nameCmp)
+      const restInStock = inStock.filter((p) => !isPromoListing(p)).sort(nameCmp)
+      const zeroStock = orderedProducts.filter((p) => p.stock <= 0)
+      const promoZero = zeroStock.filter(isPromoListing).sort(nameCmp)
+      const restZero = zeroStock.filter((p) => !isPromoListing(p)).sort(nameCmp)
+      orderedProducts = [...promoInStock, ...restInStock, ...promoZero, ...restZero]
     }
 
     // Regra de catálogo:
