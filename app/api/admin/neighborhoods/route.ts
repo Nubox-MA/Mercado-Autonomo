@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { authMiddleware } from '@/lib/middleware'
+import { ensureNeighborhoodSlug, uniqueNeighborhoodSlug } from '@/lib/ensure-catalog-slugs'
+import { slugifyToCode } from '@/lib/slug'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,28 +32,44 @@ export async function GET(request: NextRequest) {
     })
 
     if (!isAdmin) {
-      return NextResponse.json(
-        ordered.map((n) => ({
-          id: n.id,
-          name: n.name,
-          active: n.active,
-          photoUrl: n.photoUrl,
-          displayOrder: n.displayOrder,
-          deliveryFee: n.deliveryFee,
-          createdAt: n.createdAt,
-          updatedAt: n.updatedAt,
-        })),
-        { headers: noStore }
+      const publicList = await Promise.all(
+        ordered.map(async (n) => {
+          const slug = await ensureNeighborhoodSlug({
+            id: n.id,
+            name: n.name,
+            slug: n.slug,
+          })
+          return {
+            id: n.id,
+            name: n.name,
+            slug,
+            active: n.active,
+            photoUrl: n.photoUrl,
+            displayOrder: n.displayOrder,
+            deliveryFee: n.deliveryFee,
+            createdAt: n.createdAt,
+            updatedAt: n.updatedAt,
+          }
+        })
       )
+      return NextResponse.json(publicList, { headers: noStore })
     }
 
-    return NextResponse.json(
-      ordered.map(({ saurusPdvKey, ...rest }) => ({
-        ...rest,
-        saurusPdvKeyConfigured: Boolean(saurusPdvKey?.trim()),
-      })),
-      { headers: noStore }
+    const adminList = await Promise.all(
+      ordered.map(async ({ saurusPdvKey, ...rest }) => {
+        const slug = await ensureNeighborhoodSlug({
+          id: rest.id,
+          name: rest.name,
+          slug: rest.slug,
+        })
+        return {
+          ...rest,
+          slug,
+          saurusPdvKeyConfigured: Boolean(saurusPdvKey?.trim()),
+        }
+      })
     )
+    return NextResponse.json(adminList, { headers: noStore })
   } catch (error: unknown) {
     console.error('Error fetching neighborhoods:', error)
     const err = error as { message?: string; code?: string; meta?: unknown }
@@ -75,6 +93,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       name,
+      slug: slugInput,
       photoUrl,
       externalId,
       externalSystem,
@@ -98,9 +117,16 @@ export async function POST(request: NextRequest) {
       parsedDisplayOrder = n
     }
 
+    const slugBase =
+      typeof slugInput === 'string' && slugInput.trim()
+        ? slugifyToCode(slugInput.trim())
+        : slugifyToCode(name)
+    const finalSlug = await uniqueNeighborhoodSlug(slugBase)
+
     const neighborhood = await prisma.neighborhood.create({
       data: {
         name,
+        slug: finalSlug,
         displayOrder: parsedDisplayOrder,
         deliveryFee: 0,
         photoUrl: photoUrl || null,

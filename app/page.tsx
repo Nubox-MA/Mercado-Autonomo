@@ -90,6 +90,16 @@ export default function Home() {
     }
   }, [selectedCondominium])
 
+  // Deep link / QR: /loja/{slug} ou /loja/{slug}/{categoria}
+  useEffect(() => {
+    if (typeof window === 'undefined' || !selectedCondominium) return
+    const pending = sessionStorage.getItem('catalog-pending-category-id')
+    if (pending) {
+      setSelectedCategory(pending)
+      sessionStorage.removeItem('catalog-pending-category-id')
+    }
+  }, [selectedCondominium])
+
   // Carregar preferência de visualização do localStorage (backup)
   useEffect(() => {
     if (typeof window !== 'undefined') {

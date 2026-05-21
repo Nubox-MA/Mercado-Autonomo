@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { authMiddleware } from '@/lib/middleware'
+import { ensureCategorySlug, uniqueCategorySlug } from '@/lib/ensure-catalog-slugs'
+import { slugifyToCode } from '@/lib/slug'
 import { z } from 'zod'
 
 const createCategorySchema = z.object({
@@ -11,7 +13,7 @@ const createCategorySchema = z.object({
 // GET - Listar categorias (público)
 export async function GET() {
   try {
-    const categories = await prisma.category.findMany({
+    const rows = await prisma.category.findMany({
       include: {
         _count: {
           select: { products: true },
@@ -21,6 +23,13 @@ export async function GET() {
         name: 'asc',
       },
     })
+
+    const categories = await Promise.all(
+      rows.map(async (c) => ({
+        ...c,
+        slug: await ensureCategorySlug({ id: c.id, name: c.name, slug: c.slug }),
+      }))
+    )
 
     return NextResponse.json({ categories })
   } catch (error) {
@@ -44,8 +53,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const data = createCategorySchema.parse(body)
 
+    const slug = await uniqueCategorySlug(slugifyToCode(data.name))
     const category = await prisma.category.create({
-      data,
+      data: { ...data, slug },
     })
 
     return NextResponse.json({ category }, { status: 201 })

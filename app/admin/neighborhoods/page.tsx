@@ -6,11 +6,19 @@ import axios from 'axios'
 import { Plus, Edit, Trash2, MapPin, Upload, BarChart3, AlertTriangle, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import ConfirmModal from '@/components/ConfirmModal'
+import NeighborhoodCatalogLinks from '@/components/NeighborhoodCatalogLinks'
 import Image from 'next/image'
+
+interface CatalogCategory {
+  id: string
+  name: string
+  slug: string
+}
 
 interface Neighborhood {
   id: string
   name: string
+  slug?: string | null
   displayOrder?: number | null
   active: boolean
   photoUrl?: string | null
@@ -130,8 +138,11 @@ export default function NeighborhoodsPage() {
   const [syncHealthClearConfirmOpen, setSyncHealthClearConfirmOpen] = useState(false)
   const [syncHealth, setSyncHealth] = useState<SyncHealthResponse | null>(null)
 
+  const [catalogCategories, setCatalogCategories] = useState<CatalogCategory[]>([])
+
   const [formData, setFormData] = useState({
     name: '',
+    slug: '',
     displayOrder: '',
     active: true,
     photoUrl: '',
@@ -167,6 +178,24 @@ export default function NeighborhoodsPage() {
     fetchNeighborhoods()
   }, [fetchNeighborhoods])
 
+  useEffect(() => {
+    axios
+      .get('/api/categories')
+      .then((res) => {
+        const list = (res.data.categories || []) as Array<{
+          id: string
+          name: string
+          slug?: string
+        }>
+        setCatalogCategories(
+          list
+            .filter((c) => c.slug)
+            .map((c) => ({ id: c.id, name: c.name, slug: c.slug as string }))
+        )
+      })
+      .catch(() => {})
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -189,6 +218,9 @@ export default function NeighborhoodsPage() {
         dataToSend.photoUrl = formData.photoUrl.trim()
       }
 
+      if (formData.slug.trim()) {
+        dataToSend.slug = formData.slug.trim()
+      }
       dataToSend.externalId = formData.externalId.trim() || null
       dataToSend.saurusDominio = formData.saurusDominio.trim() || null
       dataToSend.saurusTabPrecoId = formData.saurusTabPrecoId.trim() || null
@@ -229,6 +261,7 @@ export default function NeighborhoodsPage() {
     setEditingId(neighborhood.id)
     setFormData({
       name: neighborhood.name,
+      slug: neighborhood.slug || '',
       displayOrder:
         neighborhood.displayOrder === null || neighborhood.displayOrder === undefined
           ? ''
@@ -270,6 +303,7 @@ export default function NeighborhoodsPage() {
   const resetForm = () => {
     setFormData({
       name: '',
+      slug: '',
       displayOrder: '',
       active: true,
       photoUrl: '',
@@ -615,6 +649,11 @@ export default function NeighborhoodsPage() {
                   {syncHint && (
                     <p className="text-xs text-gray-500 mt-2 line-clamp-2">{syncHint}</p>
                   )}
+                  <NeighborhoodCatalogLinks
+                    storeName={neighborhood.name}
+                    storeSlug={neighborhood.slug}
+                    categories={catalogCategories}
+                  />
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <button
@@ -1010,6 +1049,25 @@ export default function NeighborhoodsPage() {
                     className="input-field"
                     required
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wider">
+                    Link do catálogo (slug)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.slug}
+                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                    placeholder="Vazio = automático (ex: nubox-3-barras)"
+                    className="input-field"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    QR na porta: …/loja/
+                    {formData.slug.trim()
+                      ? formData.slug.trim().toLowerCase().replace(/\s+/g, '-')
+                      : 'gerado-ao-salvar'}
+                  </p>
                 </div>
 
                 <div>

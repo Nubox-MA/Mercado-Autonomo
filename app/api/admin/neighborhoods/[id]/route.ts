@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { authMiddleware } from '@/lib/middleware'
+import { uniqueNeighborhoodSlug } from '@/lib/ensure-catalog-slugs'
+import { slugifyToCode } from '@/lib/slug'
 
 interface RouteParams {
   params: {
@@ -42,6 +44,7 @@ export async function PUT(
       saurusTabPrecoId,
       saurusSyncEnabled,
       displayOrder,
+      slug,
       clearSaurusPdvKey,
     } = body
 
@@ -57,6 +60,7 @@ export async function PUT(
       saurusTabPrecoId !== undefined ||
       saurusSyncEnabled !== undefined ||
       displayOrder !== undefined ||
+      slug !== undefined ||
       hasSaurusPdvKeyUpdate ||
       clearSaurusPdvKey === true
 
@@ -134,6 +138,20 @@ export async function PUT(
         }
         updateData.displayOrder = n
       }
+    }
+    if (slug !== undefined) {
+      const raw = typeof slug === 'string' ? slug.trim() : ''
+      if (raw === '') {
+        return NextResponse.json(
+          { error: 'Slug não pode ser vazio (use letras, números e hífens)' },
+          { status: 400 }
+        )
+      }
+      const coded = slugifyToCode(raw)
+      if (!coded) {
+        return NextResponse.json({ error: 'Slug inválido' }, { status: 400 })
+      }
+      updateData.slug = await uniqueNeighborhoodSlug(coded, id)
     }
     if (clearSaurusPdvKey === true) {
       updateData.saurusPdvKey = null
