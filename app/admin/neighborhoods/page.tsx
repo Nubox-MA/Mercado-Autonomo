@@ -649,11 +649,6 @@ export default function NeighborhoodsPage() {
                   {syncHint && (
                     <p className="text-xs text-gray-500 mt-2 line-clamp-2">{syncHint}</p>
                   )}
-                  <NeighborhoodCatalogLinks
-                    storeName={neighborhood.name}
-                    storeSlug={neighborhood.slug}
-                    categories={catalogCategories}
-                  />
                 </div>
                 <div className="flex gap-1 shrink-0">
                   <button
@@ -674,6 +669,11 @@ export default function NeighborhoodsPage() {
               </div>
 
               <div className="mt-auto flex flex-col gap-2 pt-2 border-t border-gray-100">
+                <NeighborhoodCatalogLinks
+                  storeName={neighborhood.name}
+                  storeSlug={neighborhood.slug}
+                  categories={catalogCategories}
+                />
                 <button
                   type="button"
                   onClick={() => runTestConnection(neighborhood.id, neighborhood.name)}
