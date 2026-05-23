@@ -90,6 +90,17 @@ export default function Home() {
     }
   }, [selectedCondominium])
 
+  // Categoria sumiu da lista (vazia na loja) → volta para "Todas"
+  useEffect(() => {
+    if (
+      selectedCategory &&
+      categories.length > 0 &&
+      !categories.some((c) => c.id === selectedCategory)
+    ) {
+      setSelectedCategory('')
+    }
+  }, [categories, selectedCategory])
+
   // Deep link / QR: /loja/{slug} ou /loja/{slug}/{categoria}
   useEffect(() => {
     if (typeof window === 'undefined' || !selectedCondominium) return
@@ -146,8 +157,11 @@ export default function Home() {
   }, [])
 
   const fetchCategories = async () => {
+    if (!selectedCondominium) return
     try {
-      const response = await axios.get('/api/categories?catalog=1')
+      const response = await axios.get(
+        `/api/categories?catalog=1&neighborhoodId=${encodeURIComponent(selectedCondominium.id)}`
+      )
       setCategories(response.data.categories)
     } catch (error) {
       console.error('Error fetching categories:', error)

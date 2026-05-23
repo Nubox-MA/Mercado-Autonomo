@@ -11,10 +11,35 @@ const createCategorySchema = z.object({
   description: z.string().optional(),
 })
 
+/** Categorias com ao menos 1 produto visível no catálogo da loja (ativo, estoque > 0, preço no local). */
+async function categoryIdsWithCatalogProducts(
+  neighborhoodId: string
+): Promise<Set<string>> {
+  const rows = await prisma.product.findMany({
+    where: {
+      active: true,
+      categoryId: { not: null },
+      productPrices: {
+        some: {
+          neighborhoodId,
+          stock: { gt: 0 },
+        },
+      },
+    },
+    select: { categoryId: true },
+    distinct: ['categoryId'],
+  })
+  return new Set(
+    rows.map((r) => r.categoryId).filter((id): id is string => Boolean(id))
+  )
+}
+
 // GET - Listar categorias (público)
 export async function GET(req: NextRequest) {
   try {
-    const forCatalog = new URL(req.url).searchParams.get('catalog') === '1'
+    const { searchParams } = new URL(req.url)
+    const forCatalog = searchParams.get('catalog') === '1'
+    const neighborhoodId = searchParams.get('neighborhoodId')?.trim() || null
     const rows = await prisma.category.findMany({
       include: {
         _count: {
@@ -35,9 +60,16 @@ export async function GET(req: NextRequest) {
 
     if (forCatalog) {
       categories = categories.filter((c) => !isSemCategoriaLabel(c.name))
+      if (neighborhoodId) {
+        const withProducts = await categoryIdsWithCatalogProducts(neighborhoodId)
+        categories = categories.filter((c) => withProducts.has(c.id))
+      }
     }
 
-    return NextResponse.json({ categories })
+    return NextResponse.json(
+      { categories },
+      { headers: { 'Cache-Control': 'no-store, max-age=0, must-revalidate' } }
+    )
   } catch (error) {
     console.error('Get categories error:', error)
     return NextResponse.json(
