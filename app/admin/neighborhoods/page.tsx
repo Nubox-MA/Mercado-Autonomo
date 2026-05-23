@@ -220,9 +220,7 @@ export default function NeighborhoodsPage() {
       }
       dataToSend.displayOrder = formData.displayOrder.trim() === '' ? null : formData.displayOrder.trim()
 
-      if (formData.photoUrl) {
-        dataToSend.photoUrl = formData.photoUrl.trim()
-      }
+      dataToSend.photoUrl = formData.photoUrl.trim() || null
 
       if (formData.slug.trim()) {
         dataToSend.slug = formData.slug.trim()
@@ -1107,14 +1105,26 @@ export default function NeighborhoodsPage() {
                       id="photo-upload"
                       disabled={uploading}
                     />
-                    <label
-                      htmlFor="photo-upload"
-                      className="btn-secondary inline-flex items-center gap-2 cursor-pointer w-full justify-center"
-                    >
-                      <Upload size={20} />
-                      {uploading ? 'Enviando...' : 'Upload Foto'}
-                    </label>
-                    {formData.photoUrl && (
+                    <div className="flex flex-wrap gap-2">
+                      <label
+                        htmlFor="photo-upload"
+                        className="btn-secondary inline-flex items-center gap-2 cursor-pointer flex-1 justify-center min-w-[140px]"
+                      >
+                        <Upload size={20} />
+                        {uploading ? 'Enviando...' : 'Enviar foto'}
+                      </label>
+                      {formData.photoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, photoUrl: '' })}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 font-medium text-sm transition-colors"
+                        >
+                          <Trash2 size={18} />
+                          Remover foto
+                        </button>
+                      )}
+                    </div>
+                    {formData.photoUrl ? (
                       <div className="relative w-full h-48 bg-gray-100 rounded-xl overflow-hidden">
                         <Image
                           src={formData.photoUrl}
@@ -1124,6 +1134,8 @@ export default function NeighborhoodsPage() {
                           className="object-contain"
                         />
                       </div>
+                    ) : (
+                      <p className="text-xs text-gray-500">Nenhuma foto — a capa do local ficará sem imagem.</p>
                     )}
                   </div>
                 </div>
