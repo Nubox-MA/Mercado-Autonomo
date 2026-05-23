@@ -1,3 +1,4 @@
+import { extractBarcodeFromSaurusProdutoRow } from '@/lib/catalog-barcode'
 import { prisma } from '@/lib/prisma'
 import { buildXmlIntegracaoBase, callSaurusSoap, getSaurusConfig, parseXmlLoose } from '@/lib/saurus'
 
@@ -7,6 +8,7 @@ type ProdutoRow = {
   pro_descCategoria?: string
   /** 0 = habilitado/ativo (MJ), 1 = desabilitado/inativo — doc WsCadastros tbProdutoDados */
   pro_indStatus?: string
+  [key: string]: unknown
 }
 
 /** Produto habilitado no cadastro MJ/Saurus (pro_indStatus = 0). */
@@ -512,6 +514,7 @@ export async function executeSaurusSync(opts: {
   type PreparedProduct = {
     saurusId: string
     name: string
+    barcode: string | null
     priceFromSaurus: number
     promoPrice: number | null
     isPromotion: boolean
@@ -560,6 +563,7 @@ export async function executeSaurusSync(opts: {
     prepared.push({
       saurusId,
       name,
+      barcode: extractBarcodeFromSaurusProdutoRow(p as Record<string, unknown>),
       priceFromSaurus: base,
       promoPrice,
       isPromotion,
@@ -571,12 +575,17 @@ export async function executeSaurusSync(opts: {
 
   summary.promocoesAplicadas = prepared.filter((x) => x.isPromotion && x.catalogEnabled).length
 
+  const categoryIdBySaurusId = new Map<string, string>()
+  for (const p of prepared) {
+    categoryIdBySaurusId.set(p.saurusId, await getCategoryId(p.categoryLabel))
+  }
+
   // 4) Cria em lote os que não existem
   const toCreate = prepared.filter(p => !externalIdToExisting.has(p.saurusId))
   if (toCreate.length > 0) {
     const createPayload = []
     for (const p of toCreate) {
-      const categoryId = await getCategoryId(p.categoryLabel)
+      const categoryId = categoryIdBySaurusId.get(p.saurusId)!
       createPayload.push({
         name: p.name,
         description: null as string | null,
@@ -586,6 +595,7 @@ export async function executeSaurusSync(opts: {
         isNew: false,
         stock: 0,
         imageUrl: p.imageFromSaurus,
+        barcode: p.barcode,
         categoryId,
         active: p.catalogEnabled,
         externalId: p.saurusId,
@@ -642,6 +652,8 @@ export async function executeSaurusSync(opts: {
           promoPrice: p.promoPrice,
           isPromotion: p.isPromotion,
           active: p.catalogEnabled,
+          barcode: p.barcode,
+          categoryId: categoryIdBySaurusId.get(p.saurusId),
           ...(shouldImage ? { imageUrl: p.imageFromSaurus } : {}),
         },
         select: { id: true } as any,

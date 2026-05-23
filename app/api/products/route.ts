@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { authMiddleware } from '@/lib/middleware'
+import { dedupeCatalogProductsByBarcode } from '@/lib/catalog-barcode'
 import { isSemCategoriaLabel } from '@/lib/saurus-sync'
 import { z } from 'zod'
 
@@ -237,7 +238,9 @@ export async function GET(req: NextRequest) {
         ? catalogProducts.filter((p) => p.stock > 0)
         : catalogProducts
 
-    return NextResponse.json({ products: visibleProducts }, { headers: noStore })
+    const dedupedProducts = dedupeCatalogProductsByBarcode(visibleProducts)
+
+    return NextResponse.json({ products: dedupedProducts }, { headers: noStore })
   } catch (error: any) {
     console.error('Get products error:', error)
     console.error('Error details:', {

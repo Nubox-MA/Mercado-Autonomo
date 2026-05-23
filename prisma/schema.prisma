@@ -71,6 +71,7 @@ model Product {
   categoryId  String?
   views       Int      @default(0)
   active      Boolean  @default(true)
+  barcode     String? // EAN/código de barras (Saurus) — dedupe no catálogo
   externalId  String? // Código do produto no sistema externo (ex: Saurus)
   externalSystem String? // Nome do sistema externo (ex: "SAURUS")
   createdAt   DateTime @default(now())
@@ -83,6 +84,7 @@ model Product {
 
   @@index([categoryId])
   @@index([active])
+  @@index([barcode])
   // Um código Saurus = um produto no NüBox (evita duplicata na re-sync; o índice único cobre a busca por externalId)
   @@unique([externalId, externalSystem])
   @@map("products")
