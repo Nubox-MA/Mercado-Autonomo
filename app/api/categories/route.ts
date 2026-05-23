@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { authMiddleware } from '@/lib/middleware'
 import { ensureCategorySlug, uniqueCategorySlug } from '@/lib/ensure-catalog-slugs'
+import { isSemCategoriaLabel } from '@/lib/saurus-sync'
 import { slugifyToCode } from '@/lib/slug'
 import { z } from 'zod'
 
@@ -11,8 +12,9 @@ const createCategorySchema = z.object({
 })
 
 // GET - Listar categorias (público)
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const forCatalog = new URL(req.url).searchParams.get('catalog') === '1'
     const rows = await prisma.category.findMany({
       include: {
         _count: {
@@ -24,12 +26,16 @@ export async function GET() {
       },
     })
 
-    const categories = await Promise.all(
+    let categories = await Promise.all(
       rows.map(async (c) => ({
         ...c,
         slug: await ensureCategorySlug({ id: c.id, name: c.name, slug: c.slug }),
       }))
     )
+
+    if (forCatalog) {
+      categories = categories.filter((c) => !isSemCategoriaLabel(c.name))
+    }
 
     return NextResponse.json({ categories })
   } catch (error) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { authMiddleware } from '@/lib/middleware'
+import { isSemCategoriaLabel } from '@/lib/saurus-sync'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -226,11 +227,15 @@ export async function GET(req: NextRequest) {
       orderedProducts = [...promoInStock, ...restInStock, ...promoZero, ...restZero]
     }
 
-    // Catálogo: só produtos habilitados no cadastro MJ (Product.active).
-    // Itens sem estoque podem aparecer na busca como indisponíveis; ao folhear, só com estoque.
+    // Catálogo (com local): habilitados na MJ, com categoria real (não "Sem Categoria").
     const enabledProducts = orderedProducts.filter((p) => p.active)
+    const catalogProducts = neighborhoodId
+      ? enabledProducts.filter((p) => !isSemCategoriaLabel(p.category?.name))
+      : enabledProducts
     const visibleProducts =
-      neighborhoodId && !hasSearch ? enabledProducts.filter((p) => p.stock > 0) : enabledProducts
+      neighborhoodId && !hasSearch
+        ? catalogProducts.filter((p) => p.stock > 0)
+        : catalogProducts
 
     return NextResponse.json({ products: visibleProducts }, { headers: noStore })
   } catch (error: any) {

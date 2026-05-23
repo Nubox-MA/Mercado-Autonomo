@@ -189,7 +189,13 @@ export default function NeighborhoodsPage() {
         }>
         setCatalogCategories(
           list
-            .filter((c) => c.slug)
+            .filter(
+              (c) =>
+                c.slug &&
+                String(c.name ?? '')
+                  .trim()
+                  .toLowerCase() !== 'sem categoria'
+            )
             .map((c) => ({ id: c.id, name: c.name, slug: c.slug as string }))
         )
       })

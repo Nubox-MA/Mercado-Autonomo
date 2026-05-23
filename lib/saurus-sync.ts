@@ -180,6 +180,15 @@ export function normalizeSaurusCategoryLabel(raw: string | undefined | null): st
   return s.length > 0 ? s : 'Sem Categoria'
 }
 
+/** Categoria padrão do sync quando a MJ não envia departamento — oculta no catálogo público. */
+export function isSemCategoriaLabel(name: string | undefined | null): boolean {
+  const s = String(name ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+  return s === 'sem categoria'
+}
+
 /**
  * Evita duplicar categoria só por maiúsculas/minúsculas (ex.: "Bebidas" / "BEBIDAS").
  * Grafias diferentes continuam como categorias diferentes até alguém fundir no admin.

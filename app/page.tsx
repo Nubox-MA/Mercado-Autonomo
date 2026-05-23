@@ -147,7 +147,7 @@ export default function Home() {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get('/api/categories')
+      const response = await axios.get('/api/categories?catalog=1')
       setCategories(response.data.categories)
     } catch (error) {
       console.error('Error fetching categories:', error)
