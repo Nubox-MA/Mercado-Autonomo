@@ -226,11 +226,11 @@ export async function GET(req: NextRequest) {
       orderedProducts = [...promoInStock, ...restInStock, ...promoZero, ...restZero]
     }
 
-    // Regra de catálogo:
-    // - com busca ativa: mantém itens indisponíveis visíveis (com tarja)
-    // - sem busca (folheando): exibe apenas disponíveis no local selecionado
+    // Catálogo: só produtos habilitados no cadastro MJ (Product.active).
+    // Itens sem estoque podem aparecer na busca como indisponíveis; ao folhear, só com estoque.
+    const enabledProducts = orderedProducts.filter((p) => p.active)
     const visibleProducts =
-      neighborhoodId && !hasSearch ? orderedProducts.filter((p) => p.active) : orderedProducts
+      neighborhoodId && !hasSearch ? enabledProducts.filter((p) => p.stock > 0) : enabledProducts
 
     return NextResponse.json({ products: visibleProducts }, { headers: noStore })
   } catch (error: any) {

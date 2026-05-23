@@ -5,6 +5,15 @@ type ProdutoRow = {
   pro_idProduto?: string
   pro_descProduto?: string
   pro_descCategoria?: string
+  /** 0 = habilitado/ativo (MJ), 1 = desabilitado/inativo — doc WsCadastros tbProdutoDados */
+  pro_indStatus?: string
+}
+
+/** Produto habilitado no cadastro MJ/Saurus (pro_indStatus = 0). */
+function isSaurusProductEnabled(row: ProdutoRow): boolean {
+  const s = String(row.pro_indStatus ?? '').trim()
+  if (s === '') return true
+  return s === '0'
 }
 
 type PrecoRow = {
@@ -497,6 +506,7 @@ export async function executeSaurusSync(opts: {
     priceFromSaurus: number
     promoPrice: number | null
     isPromotion: boolean
+    catalogEnabled: boolean
     imageFromSaurus: string | null
     categoryLabel: string | undefined | null
   }
@@ -536,6 +546,7 @@ export async function executeSaurusSync(opts: {
       promoPrice = promoUnit
       isPromotion = true
     }
+    const catalogEnabled = isSaurusProductEnabled(p)
     const imageFromSaurus = imagemByProduto.get(saurusId) ?? null
     prepared.push({
       saurusId,
@@ -543,12 +554,13 @@ export async function executeSaurusSync(opts: {
       priceFromSaurus: base,
       promoPrice,
       isPromotion,
+      catalogEnabled,
       imageFromSaurus,
       categoryLabel: p.pro_descCategoria,
     })
   }
 
-  summary.promocoesAplicadas = prepared.filter((x) => x.isPromotion).length
+  summary.promocoesAplicadas = prepared.filter((x) => x.isPromotion && x.catalogEnabled).length
 
   // 4) Cria em lote os que não existem
   const toCreate = prepared.filter(p => !externalIdToExisting.has(p.saurusId))
@@ -566,7 +578,7 @@ export async function executeSaurusSync(opts: {
         stock: 0,
         imageUrl: p.imageFromSaurus,
         categoryId,
-        active: true,
+        active: p.catalogEnabled,
         externalId: p.saurusId,
         externalSystem: 'SAURUS' as const,
       })
@@ -620,6 +632,7 @@ export async function executeSaurusSync(opts: {
           price: p.priceFromSaurus,
           promoPrice: p.promoPrice,
           isPromotion: p.isPromotion,
+          active: p.catalogEnabled,
           ...(shouldImage ? { imageUrl: p.imageFromSaurus } : {}),
         },
         select: { id: true } as any,
