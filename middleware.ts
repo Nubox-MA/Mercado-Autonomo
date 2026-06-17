@@ -1,5 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { isApiPathExemptFromBilling } from '@/lib/subscription'
+
+// IMPORTANTE: middleware roda no Edge Runtime na Vercel.
+// Não importe Prisma/Node libs aqui (causa MIDDLEWARE_INVOCATION_FAILED).
+function isApiPathExemptFromBilling(pathname: string): boolean {
+  const exempt = [
+    '/api/health',
+    '/api/subscription/status',
+    '/api/subscription/webhook',
+    '/api/login',
+    '/api/auth/login',
+  ]
+  return exempt.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
